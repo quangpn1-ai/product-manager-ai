@@ -1,0 +1,303 @@
+import { query, toCamelCase, toCamelCaseArray, transaction } from '../index.js';
+import type { Organization, OrgMembership, OrgInvitation, OrgRole } from '../../types/index.js';
+
+interface CreateOrgInput {
+  name: string;
+  slug: string;
+  timezone?: string;
+  defaultLanguage?: string;
+  allowedEmailDomains?: string[];
+}
+
+interface UpdateOrgInput {
+  name?: string;
+  timezone?: string;
+  defaultLanguage?: string;
+  allowedEmailDomains?: string[] | null;
+  status?: string;
+}
+
+interface CreateMembershipInput {
+  orgId: string;
+  userId: string;
+  role: OrgRole;
+  status?: string;
+}
+
+interface CreateInvitationInput {
+  orgId: string;
+  email: string;
+  role: OrgRole;
+  token: string;
+  expiresAt: Date;
+  invitedBy: string;
+}
+
+export class OrganizationRepository {
+  // Organization CRUD
+  async findById(id: string): Promise<Organization | null> {
+    const result = await query<Record<string, unknown>>(
+      'SELECT * FROM organizations WHERE id = $1',
+      [id]
+    );
+    return result.rows[0] ? toCamelCase<Organization>(result.rows[0]) : null;
+  }
+
+  async findBySlug(slug: string): Promise<Organization | null> {
+    const result = await query<Record<string, unknown>>(
+      'SELECT * FROM organizations WHERE slug = $1',
+      [slug.toLowerCase()]
+    );
+    return result.rows[0] ? toCamelCase<Organization>(result.rows[0]) : null;
+  }
+
+  async create(input: CreateOrgInput): Promise<Organization> {
+    const result = await query<Record<string, unknown>>(
+      `INSERT INTO organizations (name, slug, timezone, default_language, allowed_email_domains)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [
+        input.name,
+        input.slug.toLowerCase(),
+        input.timezone ?? 'UTC',
+        input.defaultLanguage ?? 'en',
+        input.allowedEmailDomains ?? null,
+      ]
+    );
+    return toCamelCase<Organization>(result.rows[0]!);
+  }
+
+  async update(id: string, input: UpdateOrgInput): Promise<Organization | null> {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    if (input.name !== undefined) {
+      updates.push(`name = $${paramIndex++}`);
+      values.push(input.name);
+    }
+    if (input.timezone !== undefined) {
+      updates.push(`timezone = $${paramIndex++}`);
+      values.push(input.timezone);
+    }
+    if (input.defaultLanguage !== undefined) {
+      updates.push(`default_language = $${paramIndex++}`);
+      values.push(input.defaultLanguage);
+    }
+    if (input.allowedEmailDomains !== undefined) {
+      updates.push(`allowed_email_domains = $${paramIndex++}`);
+      values.push(input.allowedEmailDomains);
+    }
+    if (input.status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      values.push(input.status);
+    }
+
+    if (updates.length === 0) {
+      return this.findById(id);
+    }
+
+    values.push(id);
+    const result = await query<Record<string, unknown>>(
+      `UPDATE organizations SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+      values
+    );
+    return result.rows[0] ? toCamelCase<Organization>(result.rows[0]) : null;
+  }
+
+  async existsBySlug(slug: string): Promise<boolean> {
+    const result = await query<{ exists: boolean }>(
+      'SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = $1) as exists',
+      [slug.toLowerCase()]
+    );
+    return result.rows[0]?.exists ?? false;
+  }
+
+  // Membership operations
+  async findMembership(orgId: string, userId: string): Promise<OrgMembership | null> {
+    const result = await query<Record<string, unknown>>(
+      'SELECT * FROM org_memberships WHERE org_id = $1 AND user_id = $2',
+      [orgId, userId]
+    );
+    return result.rows[0] ? toCamelCase<OrgMembership>(result.rows[0]) : null;
+  }
+
+  async findMembershipsByUser(userId: string): Promise<OrgMembership[]> {
+    const result = await query<Record<string, unknown>>(
+      `SELECT * FROM org_memberships WHERE user_id = $1 AND status = 'active'`,
+      [userId]
+    );
+    return toCamelCaseArray<OrgMembership>(result.rows);
+  }
+
+  async findMembershipsByOrg(orgId: string): Promise<OrgMembership[]> {
+    const result = await query<Record<string, unknown>>(
+      'SELECT * FROM org_memberships WHERE org_id = $1 ORDER BY created_at',
+      [orgId]
+    );
+    return toCamelCaseArray<OrgMembership>(result.rows);
+  }
+
+  async createMembership(input: CreateMembershipInput): Promise<OrgMembership> {
+    const result = await query<Record<string, unknown>>(
+      `INSERT INTO org_memberships (org_id, user_id, role, status)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [input.orgId, input.userId, input.role, input.status ?? 'active']
+    );
+    return toCamelCase<OrgMembership>(result.rows[0]!);
+  }
+
+  async updateMembership(
+    orgId: string,
+    userId: string,
+    update: { role?: OrgRole; status?: string }
+  ): Promise<OrgMembership | null> {
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let paramIndex = 1;
+
+    if (update.role !== undefined) {
+      updates.push(`role = $${paramIndex++}`);
+      values.push(update.role);
+    }
+    if (update.status !== undefined) {
+      updates.push(`status = $${paramIndex++}`);
+      values.push(update.status);
+    }
+
+    if (updates.length === 0) {
+      return this.findMembership(orgId, userId);
+    }
+
+    values.push(orgId, userId);
+    const result = await query<Record<string, unknown>>(
+      `UPDATE org_memberships SET ${updates.join(', ')}
+       WHERE org_id = $${paramIndex++} AND user_id = $${paramIndex}
+       RETURNING *`,
+      values
+    );
+    return result.rows[0] ? toCamelCase<OrgMembership>(result.rows[0]) : null;
+  }
+
+  async deleteMembership(orgId: string, userId: string): Promise<void> {
+    await query(
+      'DELETE FROM org_memberships WHERE org_id = $1 AND user_id = $2',
+      [orgId, userId]
+    );
+  }
+
+  async countAdmins(orgId: string): Promise<number> {
+    const result = await query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM org_memberships
+       WHERE org_id = $1 AND role = 'org_admin' AND status = 'active'`,
+      [orgId]
+    );
+    return parseInt(result.rows[0]?.count ?? '0', 10);
+  }
+
+  async getOrgsForUser(userId: string): Promise<Organization[]> {
+    const result = await query<Record<string, unknown>>(
+      `SELECT o.* FROM organizations o
+       INNER JOIN org_memberships m ON o.id = m.org_id
+       WHERE m.user_id = $1 AND m.status = 'active' AND o.status = 'active'
+       ORDER BY o.name`,
+      [userId]
+    );
+    return toCamelCaseArray<Organization>(result.rows);
+  }
+
+  // Invitation operations
+  async findInvitationById(id: string): Promise<OrgInvitation | null> {
+    const result = await query<Record<string, unknown>>(
+      'SELECT * FROM org_invitations WHERE id = $1',
+      [id]
+    );
+    return result.rows[0] ? toCamelCase<OrgInvitation>(result.rows[0]) : null;
+  }
+
+  async findInvitationByToken(token: string): Promise<OrgInvitation | null> {
+    const result = await query<Record<string, unknown>>(
+      `SELECT * FROM org_invitations WHERE token = $1 AND status = 'pending' AND expires_at > now()`,
+      [token]
+    );
+    return result.rows[0] ? toCamelCase<OrgInvitation>(result.rows[0]) : null;
+  }
+
+  async findInvitationsByOrg(orgId: string): Promise<OrgInvitation[]> {
+    const result = await query<Record<string, unknown>>(
+      `SELECT * FROM org_invitations WHERE org_id = $1 ORDER BY created_at DESC`,
+      [orgId]
+    );
+    return toCamelCaseArray<OrgInvitation>(result.rows);
+  }
+
+  async findPendingInvitationByEmail(orgId: string, email: string): Promise<OrgInvitation | null> {
+    const result = await query<Record<string, unknown>>(
+      `SELECT * FROM org_invitations
+       WHERE org_id = $1 AND email = $2 AND status = 'pending' AND expires_at > now()`,
+      [orgId, email.toLowerCase()]
+    );
+    return result.rows[0] ? toCamelCase<OrgInvitation>(result.rows[0]) : null;
+  }
+
+  async createInvitation(input: CreateInvitationInput): Promise<OrgInvitation> {
+    const result = await query<Record<string, unknown>>(
+      `INSERT INTO org_invitations (org_id, email, role, token, expires_at, invited_by)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [input.orgId, input.email.toLowerCase(), input.role, input.token, input.expiresAt, input.invitedBy]
+    );
+    return toCamelCase<OrgInvitation>(result.rows[0]!);
+  }
+
+  async updateInvitationStatus(id: string, status: string): Promise<void> {
+    await query(
+      'UPDATE org_invitations SET status = $1 WHERE id = $2',
+      [status, id]
+    );
+  }
+
+  async expireOldInvitations(): Promise<number> {
+    const result = await query(
+      `UPDATE org_invitations SET status = 'expired'
+       WHERE status = 'pending' AND expires_at <= now()`,
+      []
+    );
+    return result.rowCount ?? 0;
+  }
+
+  // Create org with admin (transaction)
+  async createWithAdmin(
+    orgInput: CreateOrgInput,
+    userId: string
+  ): Promise<{ org: Organization; membership: OrgMembership }> {
+    return transaction(async (client) => {
+      const orgResult = await client.query(
+        `INSERT INTO organizations (name, slug, timezone, default_language, allowed_email_domains)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [
+          orgInput.name,
+          orgInput.slug.toLowerCase(),
+          orgInput.timezone ?? 'UTC',
+          orgInput.defaultLanguage ?? 'en',
+          orgInput.allowedEmailDomains ?? null,
+        ]
+      );
+      const org = toCamelCase<Organization>(orgResult.rows[0]);
+
+      const membershipResult = await client.query(
+        `INSERT INTO org_memberships (org_id, user_id, role, status)
+         VALUES ($1, $2, 'org_admin', 'active')
+         RETURNING *`,
+        [org.id, userId]
+      );
+      const membership = toCamelCase<OrgMembership>(membershipResult.rows[0]);
+
+      return { org, membership };
+    });
+  }
+}
+
+export const organizationRepository = new OrganizationRepository();

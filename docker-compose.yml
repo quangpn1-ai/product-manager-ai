@@ -1,0 +1,86 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aipm
+      POSTGRES_PASSWORD: aipm
+      POSTGRES_DB: aipm
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aipm -d aipm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgres://aipm:aipm@postgres:5432/aipm
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-production-32-chars-min}"
+      APP_KMS_MASTER_KEY: "${APP_KMS_MASTER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+      BASE_URL: "${BASE_URL:-http://localhost:3000}"
+      MANAGED_OPENAI_KEY: "${MANAGED_OPENAI_KEY:-}"
+      MANAGED_ANTHROPIC_KEY: "${MANAGED_ANTHROPIC_KEY:-}"
+      MANAGED_GOOGLE_KEY: "${MANAGED_GOOGLE_KEY:-}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://aipm:aipm@postgres:5432/aipm
+      REDIS_URL: redis://redis:6379
+      APP_KMS_MASTER_KEY: "${APP_KMS_MASTER_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}"
+      MANAGED_OPENAI_KEY: "${MANAGED_OPENAI_KEY:-}"
+      MANAGED_ANTHROPIC_KEY: "${MANAGED_ANTHROPIC_KEY:-}"
+      MANAGED_GOOGLE_KEY: "${MANAGED_GOOGLE_KEY:-}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+volumes:
+  pgdata:
+  redisdata:
