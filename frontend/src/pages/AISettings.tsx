@@ -84,6 +84,14 @@ export default function AISettings() {
   };
 
   const handleSave = (providerId: string, mode: string) => {
+    if (mode === 'disabled') {
+      // Just close the editing panel - no config needed for disabled
+      setEditingProvider(null);
+      setApiKey('');
+      setSaveSuccess(providerId);
+      setTimeout(() => setSaveSuccess(null), 3000);
+      return;
+    }
     saveMutation.mutate({
       provider: providerId,
       mode,
