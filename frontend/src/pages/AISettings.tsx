@@ -44,11 +44,20 @@ export default function AISettings() {
     enabled: !!currentOrgId,
   });
 
+  // Default models for each provider
+  const DEFAULT_MODELS: Record<string, string> = {
+    openai: 'gpt-4',
+    anthropic: 'claude-3-5-sonnet-20241022',
+    google: 'gemini-1.5-pro',
+  };
+
   const saveMutation = useMutation({
     mutationFn: ({ provider, mode, apiKey }: { provider: string; mode: string; apiKey?: string }) =>
       api.put(`/orgs/${currentOrgId}/ai/providers/${provider}`, {
         mode,
         api_key: apiKey,
+        default_model: DEFAULT_MODELS[provider],
+        is_enabled: mode !== 'disabled',
       }),
     onSuccess: (_, variables) => {
       setSaveSuccess(variables.provider);
@@ -63,13 +72,10 @@ export default function AISettings() {
     },
   });
 
-  const testMutation = useMutation({
-    mutationFn: (provider: string) =>
-      api.post(`/orgs/${currentOrgId}/ai/providers/${provider}/test`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-providers', currentOrgId] });
-    },
-  });
+  // Test connection - not implemented yet
+  const handleTestConnection = (provider: string) => {
+    setSaveError('Test connection is not available yet. Please save the configuration and try using the API.');
+  };
 
   const providers: ProviderConfig[] = providersData?.data?.data || [];
 
@@ -247,11 +253,10 @@ export default function AISettings() {
                       Cancel
                     </button>
                     <button
-                      onClick={() => testMutation.mutate(provider.id)}
-                      disabled={testMutation.isPending}
+                      onClick={() => handleTestConnection(provider.id)}
                       className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
                     >
-                      {testMutation.isPending ? 'Testing...' : 'Test Connection'}
+                      Test Connection
                     </button>
                     <button
                       onClick={() => {
