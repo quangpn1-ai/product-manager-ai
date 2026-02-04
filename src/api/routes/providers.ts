@@ -7,7 +7,7 @@ import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 import type { AIProvider, ProviderMode } from '../../types/index.js';
 
-const router = Router();
+const router = Router({ mergeParams: true });
 
 // Provider schemas
 const providerSchema = z.enum(['openai', 'anthropic', 'google']);
@@ -170,7 +170,7 @@ router.delete('/:provider', authenticate, requireOrgAdmin, async (req, res, next
 export default router;
 
 // Budget routes - separate router
-export const budgetRouter = Router();
+export const budgetRouter = Router({ mergeParams: true });
 
 // GET /orgs/:org_id/budgets - List budgets
 budgetRouter.get('/', authenticate, requireOrgMembership(), async (req, res, next) => {
