@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { organizationRepository } from '../../db/repositories/organization-repository.js';
 import { userRepository } from '../../db/repositories/user-repository.js';
+import { query, toCamelCase } from '../../db/index.js';
 import { authenticate, requireOrgMembership, requireOrgAdmin } from '../middleware/auth.js';
 import { validateBody, validateQuery, emailSchema, slugSchema, paginationSchema } from '../validators/index.js';
 import { NotFoundError, ConflictError, ValidationError, ForbiddenError } from '../../utils/errors.js';
@@ -424,6 +425,47 @@ router.delete('/:org_id/members/:user_id', authenticate, requireOrgAdmin, async 
     res.json({
       data: null,
       meta: { message: 'Member removed' },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /orgs/:org_id/workflows - List workflows
+router.get('/:org_id/workflows', authenticate, requireOrgMembership(), async (req, res, next) => {
+  try {
+    const orgId = req.params['org_id']!;
+
+    const result = await query<Record<string, unknown>>(
+      `SELECT id, key, name, description, is_system, is_active, created_at, updated_at
+       FROM workflows
+       WHERE org_id = $1 AND is_active = true
+       ORDER BY is_system DESC, name ASC`,
+      [orgId]
+    );
+
+    const workflows = result.rows.map((row) => toCamelCase<{
+      id: string;
+      key: string;
+      name: string;
+      description: string | null;
+      isSystem: boolean;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+    }>(row));
+
+    res.json({
+      data: workflows.map((w) => ({
+        id: w.id,
+        key: w.key,
+        name: w.name,
+        description: w.description,
+        is_system: w.isSystem,
+        is_active: w.isActive,
+        created_at: w.createdAt,
+        updated_at: w.updatedAt,
+      })),
     });
   } catch (error) {
     next(error);
