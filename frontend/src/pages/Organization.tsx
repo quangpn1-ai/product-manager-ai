@@ -33,7 +33,7 @@ interface Invitation {
 }
 
 export default function Organization() {
-  const { currentOrg } = useAuth();
+  const { currentOrgId } = useAuth();
   const queryClient = useQueryClient();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -42,30 +42,30 @@ export default function Organization() {
   const [inviteSuccess, setInviteSuccess] = useState(false);
 
   const { data: orgData, isLoading: orgLoading } = useQuery({
-    queryKey: ['org', currentOrg],
-    queryFn: () => orgsApi.get(currentOrg!),
-    enabled: !!currentOrg,
+    queryKey: ['org', currentOrgId],
+    queryFn: () => orgsApi.get(currentOrgId!),
+    enabled: !!currentOrgId,
   });
 
   const { data: membersData, isLoading: membersLoading } = useQuery({
-    queryKey: ['org-members', currentOrg],
-    queryFn: () => orgsApi.getMembers(currentOrg!),
-    enabled: !!currentOrg,
+    queryKey: ['org-members', currentOrgId],
+    queryFn: () => orgsApi.getMembers(currentOrgId!),
+    enabled: !!currentOrgId,
   });
 
   const { data: invitationsData } = useQuery({
-    queryKey: ['org-invitations', currentOrg],
-    queryFn: () => api.get(`/orgs/${currentOrg}/invitations`),
-    enabled: !!currentOrg,
+    queryKey: ['org-invitations', currentOrgId],
+    queryFn: () => api.get(`/orgs/${currentOrgId}/invitations`),
+    enabled: !!currentOrgId,
   });
 
   const inviteMutation = useMutation({
     mutationFn: (data: { email: string; role: string }) =>
-      api.post(`/orgs/${currentOrg}/invitations`, data),
+      api.post(`/orgs/${currentOrgId}/invitations`, data),
     onSuccess: () => {
       setInviteSuccess(true);
       setInviteEmail('');
-      queryClient.invalidateQueries({ queryKey: ['org-invitations', currentOrg] });
+      queryClient.invalidateQueries({ queryKey: ['org-invitations', currentOrgId] });
       setTimeout(() => {
         setShowInviteModal(false);
         setInviteSuccess(false);
@@ -78,17 +78,17 @@ export default function Organization() {
 
   const cancelInvitationMutation = useMutation({
     mutationFn: (invitationId: string) =>
-      api.delete(`/orgs/${currentOrg}/invitations/${invitationId}`),
+      api.delete(`/orgs/${currentOrgId}/invitations/${invitationId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-invitations', currentOrg] });
+      queryClient.invalidateQueries({ queryKey: ['org-invitations', currentOrgId] });
     },
   });
 
   const removeMemberMutation = useMutation({
     mutationFn: (userId: string) =>
-      api.delete(`/orgs/${currentOrg}/members/${userId}`),
+      api.delete(`/orgs/${currentOrgId}/members/${userId}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['org-members', currentOrg] });
+      queryClient.invalidateQueries({ queryKey: ['org-members', currentOrgId] });
     },
   });
 

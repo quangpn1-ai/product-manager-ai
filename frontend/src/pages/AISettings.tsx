@@ -30,7 +30,7 @@ const PROVIDERS = [
 ];
 
 export default function AISettings() {
-  const { currentOrg } = useAuth();
+  const { currentOrgIdId } = useAuth();
   const queryClient = useQueryClient();
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
@@ -39,14 +39,14 @@ export default function AISettings() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const { data: providersData, isLoading } = useQuery({
-    queryKey: ['ai-providers', currentOrg],
-    queryFn: () => api.get(`/orgs/${currentOrg}/ai/providers`),
-    enabled: !!currentOrg,
+    queryKey: ['ai-providers', currentOrgId],
+    queryFn: () => api.get(`/orgs/${currentOrgId}/ai/providers`),
+    enabled: !!currentOrgId,
   });
 
   const saveMutation = useMutation({
     mutationFn: ({ provider, mode, apiKey }: { provider: string; mode: string; apiKey?: string }) =>
-      api.put(`/orgs/${currentOrg}/ai/providers/${provider}`, {
+      api.put(`/orgs/${currentOrgId}/ai/providers/${provider}`, {
         mode,
         api_key: apiKey,
       }),
@@ -55,7 +55,7 @@ export default function AISettings() {
       setSaveError(null);
       setEditingProvider(null);
       setApiKey('');
-      queryClient.invalidateQueries({ queryKey: ['ai-providers', currentOrg] });
+      queryClient.invalidateQueries({ queryKey: ['ai-providers', currentOrgId] });
       setTimeout(() => setSaveSuccess(null), 3000);
     },
     onError: (err: any, variables) => {
@@ -65,9 +65,9 @@ export default function AISettings() {
 
   const testMutation = useMutation({
     mutationFn: (provider: string) =>
-      api.post(`/orgs/${currentOrg}/ai/providers/${provider}/test`),
+      api.post(`/orgs/${currentOrgId}/ai/providers/${provider}/test`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ai-providers', currentOrg] });
+      queryClient.invalidateQueries({ queryKey: ['ai-providers', currentOrgId] });
     },
   });
 

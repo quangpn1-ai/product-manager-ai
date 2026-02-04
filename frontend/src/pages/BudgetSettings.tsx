@@ -33,7 +33,7 @@ interface UsageRecord {
 }
 
 export default function BudgetSettings() {
-  const { currentOrg } = useAuth();
+  const { currentOrgId } = useAuth();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [dailyLimit, setDailyLimit] = useState('');
@@ -44,15 +44,15 @@ export default function BudgetSettings() {
   const [saveError, setSaveError] = useState('');
 
   const { data: budgetData, isLoading: budgetLoading } = useQuery({
-    queryKey: ['budget', currentOrg],
-    queryFn: () => api.get(`/orgs/${currentOrg}/budgets`),
-    enabled: !!currentOrg,
+    queryKey: ['budget', currentOrgId],
+    queryFn: () => api.get(`/orgs/${currentOrgId}/budgets`),
+    enabled: !!currentOrgId,
   });
 
   const { data: usageData, isLoading: usageLoading } = useQuery({
-    queryKey: ['usage', currentOrg],
-    queryFn: () => api.get(`/orgs/${currentOrg}/usage?days=30`),
-    enabled: !!currentOrg,
+    queryKey: ['usage', currentOrgId],
+    queryFn: () => api.get(`/orgs/${currentOrgId}/usage?days=30`),
+    enabled: !!currentOrgId,
   });
 
   const saveMutation = useMutation({
@@ -61,12 +61,12 @@ export default function BudgetSettings() {
       monthly_limit_cents: number;
       alert_threshold_percent: number;
       hard_limit_enabled: boolean;
-    }) => api.put(`/orgs/${currentOrg}/budgets`, data),
+    }) => api.put(`/orgs/${currentOrgId}/budgets`, data),
     onSuccess: () => {
       setSaveSuccess(true);
       setSaveError('');
       setIsEditing(false);
-      queryClient.invalidateQueries({ queryKey: ['budget', currentOrg] });
+      queryClient.invalidateQueries({ queryKey: ['budget', currentOrgId] });
       setTimeout(() => setSaveSuccess(false), 3000);
     },
     onError: (err: any) => {
