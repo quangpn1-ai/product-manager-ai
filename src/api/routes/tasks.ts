@@ -8,7 +8,7 @@ import { NotFoundError, ConflictError, ValidationError } from '../../utils/error
 import { logger } from '../../utils/logger.js';
 import type { TaskStatus, ContextItem } from '../../types/index.js';
 
-const router = Router();
+const router = Router({ mergeParams: true });
 
 // Schemas
 const createTaskSchema = z.object({
