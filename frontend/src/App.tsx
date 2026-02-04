@@ -5,10 +5,14 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import NewTask from './pages/NewTask';
 import TaskDetail from './pages/TaskDetail';
+import Settings from './pages/Settings';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +62,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
+      {/* Public Routes */}
       <Route
         path="/login"
         element={
@@ -77,6 +82,27 @@ function AppRoutes() {
       />
 
       <Route
+        path="/forgot-password"
+        element={
+          <PublicRoute>
+            <ForgotPassword />
+          </PublicRoute>
+        }
+      />
+
+      <Route
+        path="/reset-password"
+        element={
+          <PublicRoute>
+            <ResetPassword />
+          </PublicRoute>
+        }
+      />
+
+      <Route path="/verify-email" element={<VerifyEmail />} />
+
+      {/* Protected Routes */}
+      <Route
         path="/"
         element={
           <ProtectedRoute>
@@ -88,7 +114,7 @@ function AppRoutes() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="tasks/new" element={<NewTask />} />
         <Route path="tasks/:taskId" element={<TaskDetail />} />
-        <Route path="settings" element={<div className="p-4">Settings - Coming Soon</div>} />
+        <Route path="settings" element={<Settings />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />

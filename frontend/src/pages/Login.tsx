@@ -92,11 +92,16 @@ export default function Login() {
             {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
 
-          <div className="text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-blue-600 hover:text-blue-500">
-              Sign up
+          <div className="flex items-center justify-between text-sm">
+            <Link to="/forgot-password" className="text-blue-600 hover:text-blue-500">
+              Forgot password?
             </Link>
+            <span className="text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/signup" className="text-blue-600 hover:text-blue-500">
+                Sign up
+              </Link>
+            </span>
           </div>
 
           <div className="mt-4 p-4 bg-gray-100 rounded-md text-sm text-gray-600">
