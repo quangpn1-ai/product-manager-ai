@@ -30,7 +30,7 @@ const PROVIDERS = [
 ];
 
 export default function AISettings() {
-  const { currentOrgIdId } = useAuth();
+  const { currentOrgId } = useAuth();
   const queryClient = useQueryClient();
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
