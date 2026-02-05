@@ -492,18 +492,41 @@ function Section({ title, content }: { title: string; content: any }) {
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, (str) => str.toUpperCase());
 
+  const renderContent = (value: any): React.ReactNode => {
+    if (value === null || value === undefined) {
+      return <span className="text-gray-400">N/A</span>;
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return <span>{String(value)}</span>;
+    }
+    if (Array.isArray(value)) {
+      return (
+        <ul className="list-disc list-inside space-y-1 ml-4">
+          {value.map((item, i) => (
+            <li key={i} className="text-gray-700">{renderContent(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+    if (typeof value === 'object') {
+      return (
+        <div className="ml-4 space-y-2">
+          {Object.entries(value).map(([k, v]) => (
+            <div key={k}>
+              <span className="font-medium text-gray-600">{k.replace(/_/g, ' ')}: </span>
+              {renderContent(v)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    return <span>{String(value)}</span>;
+  };
+
   return (
     <div className="mb-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-2">{formattedTitle}</h3>
-      {Array.isArray(content) ? (
-        <ul className="list-disc list-inside space-y-1">
-          {content.map((item, i) => (
-            <li key={i} className="text-gray-700">{String(item)}</li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-gray-700">{String(content)}</p>
-      )}
+      <div className="text-gray-700">{renderContent(content)}</div>
     </div>
   );
 }
