@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,9 @@ import {
   XCircle,
   Download,
   RefreshCw,
+  Plus,
+  Trash2,
+  Save,
 } from 'lucide-react';
 
 export default function TaskDetail() {
@@ -21,6 +24,9 @@ export default function TaskDetail() {
   const queryClient = useQueryClient();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'document' | 'runs'>('overview');
+  const [clarifications, setClarifications] = useState<Array<{ key: string; value: string }>>([]);
+  const [newClarificationKey, setNewClarificationKey] = useState('');
+  const [newClarificationValue, setNewClarificationValue] = useState('');
 
   const { data: taskData, isLoading } = useQuery({
     queryKey: ['task', currentOrgId, taskId],
@@ -45,12 +51,51 @@ export default function TaskDetail() {
   const runs = runsData?.data?.data || [];
   const latestDocument = documents[0];
 
+  // Load clarifications when task loads
+  useEffect(() => {
+    if (task?.clarification_json) {
+      const entries = Object.entries(task.clarification_json).map(([key, value]) => ({
+        key,
+        value: String(value),
+      }));
+      setClarifications(entries);
+    }
+  }, [task?.clarification_json]);
+
   const updateStatusMutation = useMutation({
     mutationFn: (status: string) => tasksApi.update(currentOrgId!, taskId!, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['task', currentOrgId, taskId] });
     },
   });
+
+  const saveClarificationsMutation = useMutation({
+    mutationFn: (clarificationJson: Record<string, string>) =>
+      tasksApi.update(currentOrgId!, taskId!, { clarification_json: clarificationJson }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', currentOrgId, taskId] });
+    },
+  });
+
+  const handleAddClarification = () => {
+    if (newClarificationKey.trim() && newClarificationValue.trim()) {
+      setClarifications([...clarifications, { key: newClarificationKey.trim(), value: newClarificationValue.trim() }]);
+      setNewClarificationKey('');
+      setNewClarificationValue('');
+    }
+  };
+
+  const handleRemoveClarification = (index: number) => {
+    setClarifications(clarifications.filter((_, i) => i !== index));
+  };
+
+  const handleSaveClarifications = () => {
+    const clarificationJson: Record<string, string> = {};
+    clarifications.forEach(({ key, value }) => {
+      clarificationJson[key] = value;
+    });
+    saveClarificationsMutation.mutate(clarificationJson);
+  };
 
   const createRunMutation = useMutation({
     mutationFn: () => {
@@ -106,15 +151,29 @@ export default function TaskDetail() {
         </div>
 
         <div className="flex items-center gap-2">
-          {task.allowed_transitions?.includes('READY_FOR_GENERATION') && (
+          {/* NEW → CLARIFYING */}
+          {task.status === 'NEW' && (
             <button
-              onClick={() => updateStatusMutation.mutate('READY_FOR_GENERATION')}
-              className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm"
+              onClick={() => updateStatusMutation.mutate('CLARIFYING')}
+              disabled={updateStatusMutation.isPending}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm disabled:opacity-50"
             >
-              Ready for Generation
+              {updateStatusMutation.isPending ? 'Updating...' : 'Start Clarification'}
             </button>
           )}
 
+          {/* CLARIFYING → READY_FOR_GENERATION */}
+          {task.status === 'CLARIFYING' && (
+            <button
+              onClick={() => updateStatusMutation.mutate('READY_FOR_GENERATION')}
+              disabled={updateStatusMutation.isPending}
+              className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 text-sm disabled:opacity-50"
+            >
+              {updateStatusMutation.isPending ? 'Updating...' : 'Ready for Generation'}
+            </button>
+          )}
+
+          {/* READY_FOR_GENERATION → Generate */}
           {task.status === 'READY_FOR_GENERATION' && (
             <button
               onClick={() => createRunMutation.mutate()}
@@ -126,6 +185,7 @@ export default function TaskDetail() {
             </button>
           )}
 
+          {/* APPROVED → Export */}
           {task.status === 'APPROVED' && (
             <button
               onClick={() => exportMutation.mutate('markdown')}
@@ -189,12 +249,86 @@ export default function TaskDetail() {
             </div>
           )}
 
-          {task.clarification_json && Object.keys(task.clarification_json).length > 0 && (
+          {/* Clarification Form - shown when CLARIFYING */}
+          {task.status === 'CLARIFYING' && (
+            <div className="border-t pt-6">
+              <h3 className="text-sm font-medium text-gray-500 mb-4">Add Clarifications</h3>
+
+              {/* Existing clarifications */}
+              {clarifications.length > 0 && (
+                <div className="space-y-2 mb-4">
+                  {clarifications.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
+                      <span className="font-medium text-sm text-gray-700 min-w-[120px]">{item.key}:</span>
+                      <span className="text-sm text-gray-600 flex-1">{item.value}</span>
+                      <button
+                        onClick={() => handleRemoveClarification(index)}
+                        className="p-1 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add new clarification */}
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Question/Field</label>
+                  <input
+                    type="text"
+                    value={newClarificationKey}
+                    onChange={(e) => setNewClarificationKey(e.target.value)}
+                    placeholder="e.g., Target Users"
+                    className="w-full px-3 py-2 border rounded-md text-sm"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs text-gray-500 mb-1">Answer/Value</label>
+                  <input
+                    type="text"
+                    value={newClarificationValue}
+                    onChange={(e) => setNewClarificationValue(e.target.value)}
+                    placeholder="e.g., Enterprise customers"
+                    className="w-full px-3 py-2 border rounded-md text-sm"
+                  />
+                </div>
+                <button
+                  onClick={handleAddClarification}
+                  disabled={!newClarificationKey.trim() || !newClarificationValue.trim()}
+                  className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Save button */}
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={handleSaveClarifications}
+                  disabled={saveClarificationsMutation.isPending}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" />
+                  {saveClarificationsMutation.isPending ? 'Saving...' : 'Save Clarifications'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Show saved clarifications for other statuses */}
+          {task.status !== 'CLARIFYING' && task.clarification_json && Object.keys(task.clarification_json).length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-2">Clarifications</h3>
-              <pre className="bg-gray-50 p-4 rounded-md text-sm overflow-auto">
-                {JSON.stringify(task.clarification_json, null, 2)}
-              </pre>
+              <div className="space-y-2">
+                {Object.entries(task.clarification_json).map(([key, value]) => (
+                  <div key={key} className="bg-gray-50 p-2 rounded-md">
+                    <span className="font-medium text-sm text-gray-700">{key}:</span>{' '}
+                    <span className="text-sm text-gray-600">{String(value)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
