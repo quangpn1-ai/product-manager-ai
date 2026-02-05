@@ -30,15 +30,16 @@ export interface ProviderAdapter {
 // Model pricing (per 1M tokens in cents)
 export const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   // OpenAI
-  'gpt-4.1': { input: 200, output: 800 },
+  'gpt-4': { input: 300, output: 600 },
+  'gpt-4-turbo': { input: 1000, output: 3000 },
   'gpt-4o': { input: 250, output: 1000 },
   'gpt-4o-mini': { input: 15, output: 60 },
   'gpt-3.5-turbo': { input: 50, output: 150 },
   // Anthropic
-  'claude-3.5-sonnet': { input: 300, output: 1500 },
-  'claude-3-opus': { input: 1500, output: 7500 },
-  'claude-3-sonnet': { input: 300, output: 1500 },
-  'claude-3-haiku': { input: 25, output: 125 },
+  'claude-3-5-sonnet-20241022': { input: 300, output: 1500 },
+  'claude-3-opus-20240229': { input: 1500, output: 7500 },
+  'claude-3-sonnet-20240229': { input: 300, output: 1500 },
+  'claude-3-haiku-20240307': { input: 25, output: 125 },
   // Google
   'gemini-1.5-pro': { input: 125, output: 500 },
   'gemini-1.5-flash': { input: 7.5, output: 30 },

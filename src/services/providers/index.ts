@@ -59,8 +59,8 @@ export async function getDefaultModel(orgId: string, provider: AIProvider): Prom
 
   // Default models by provider
   const defaults: Record<AIProvider, string> = {
-    openai: 'gpt-4.1',
-    anthropic: 'claude-3.5-sonnet',
+    openai: 'gpt-4o',
+    anthropic: 'claude-3-5-sonnet-20241022',
     google: 'gemini-1.5-pro',
   };
 

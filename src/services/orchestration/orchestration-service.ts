@@ -125,12 +125,14 @@ export class OrchestrationService {
             'Stage completed'
           );
         } catch (error) {
-          logger.error({ runId, stageId: stageDef.id, error }, 'Stage failed');
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const errorStack = error instanceof Error ? error.stack : undefined;
+          logger.error({ runId, stageId: stageDef.id, errorMessage, errorStack }, 'Stage failed');
 
           // Update stage with failure
           await runRepository.updateStage(orgId, runId, stageDef.id, {
             status: 'FAILED',
-            errorJson: { message: error instanceof Error ? error.message : String(error) },
+            errorJson: { message: errorMessage, stack: errorStack },
           });
 
           // Critical failure rules
