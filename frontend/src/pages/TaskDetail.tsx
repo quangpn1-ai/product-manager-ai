@@ -196,6 +196,18 @@ export default function TaskDetail() {
               Export Markdown
             </button>
           )}
+
+          {/* FAILED → Retry */}
+          {task.status === 'FAILED' && (
+            <button
+              onClick={() => updateStatusMutation.mutate('READY_FOR_GENERATION')}
+              disabled={updateStatusMutation.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 disabled:opacity-50"
+            >
+              <RefreshCw className="h-4 w-4" />
+              {updateStatusMutation.isPending ? 'Updating...' : 'Retry Generation'}
+            </button>
+          )}
         </div>
       </div>
 
