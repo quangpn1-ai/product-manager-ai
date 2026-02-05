@@ -6,6 +6,7 @@ import { authenticate, requireOrgMembership } from '../middleware/auth.js';
 import { validateBody, validateQuery, paginationSchema, uuidSchema } from '../validators/index.js';
 import { NotFoundError, ConflictError, ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
+import { enqueueRun } from '../../services/queue.js';
 import type { TaskStatus, ContextItem } from '../../types/index.js';
 
 const router = Router({ mergeParams: true });
@@ -360,9 +361,10 @@ router.post(
         idempotencyKey,
       });
 
-      // TODO: Enqueue job to worker
+      // Enqueue job to worker
+      await enqueueRun(run.id, orgId);
 
-      logger.info({ runId: run.id, taskId, orgId, actorId: userId }, 'Run created');
+      logger.info({ runId: run.id, taskId, orgId, actorId: userId }, 'Run created and enqueued');
 
       res.status(201).json({
         data: {
