@@ -500,7 +500,10 @@ router.post(
       if (req.body.approved) {
         const approved = await documentRepository.approve(orgId, docId, userId);
 
-        // Update task status to APPROVED
+        // Update task status: DRAFT_GENERATED → IN_REVIEW → APPROVED
+        if (task.status === 'DRAFT_GENERATED') {
+          await taskRepository.update(orgId, taskId, { status: 'IN_REVIEW' });
+        }
         await taskRepository.update(orgId, taskId, {
           status: 'APPROVED',
           documentCurrentId: docId,
