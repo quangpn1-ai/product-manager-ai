@@ -15,7 +15,19 @@ import {
   Plus,
   Trash2,
   Save,
+  Link,
+  FileText as TextIcon,
+  CheckSquare,
+  ExternalLink,
 } from 'lucide-react';
+
+interface ContextItem {
+  type: 'link' | 'text' | 'decision';
+  title: string;
+  url?: string;
+  content?: string;
+  notes?: string;
+}
 
 export default function TaskDetail() {
   const { taskId } = useParams<{ taskId: string }>();
@@ -27,6 +39,15 @@ export default function TaskDetail() {
   const [clarifications, setClarifications] = useState<Array<{ key: string; value: string }>>([]);
   const [newClarificationKey, setNewClarificationKey] = useState('');
   const [newClarificationValue, setNewClarificationValue] = useState('');
+
+  // Context items state
+  const [contextItems, setContextItems] = useState<ContextItem[]>([]);
+  const [showAddContext, setShowAddContext] = useState(false);
+  const [newContextType, setNewContextType] = useState<'link' | 'text' | 'decision'>('link');
+  const [newContextTitle, setNewContextTitle] = useState('');
+  const [newContextUrl, setNewContextUrl] = useState('');
+  const [newContextContent, setNewContextContent] = useState('');
+  const [newContextNotes, setNewContextNotes] = useState('');
 
   const { data: taskData, isLoading } = useQuery({
     queryKey: ['task', currentOrgId, taskId],
@@ -62,6 +83,13 @@ export default function TaskDetail() {
     }
   }, [task?.clarification_json]);
 
+  // Load context items when task loads
+  useEffect(() => {
+    if (task?.context_items_json) {
+      setContextItems(task.context_items_json);
+    }
+  }, [task?.context_items_json]);
+
   const updateStatusMutation = useMutation({
     mutationFn: (status: string) => tasksApi.update(currentOrgId!, taskId!, { status }),
     onSuccess: () => {
@@ -95,6 +123,44 @@ export default function TaskDetail() {
       clarificationJson[key] = value;
     });
     saveClarificationsMutation.mutate(clarificationJson);
+  };
+
+  // Context items mutations and handlers
+  const saveContextItemsMutation = useMutation({
+    mutationFn: (items: ContextItem[]) =>
+      tasksApi.update(currentOrgId!, taskId!, { context_items_json: items }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['task', currentOrgId, taskId] });
+    },
+  });
+
+  const handleAddContextItem = () => {
+    if (!newContextTitle.trim()) return;
+
+    const newItem: ContextItem = {
+      type: newContextType,
+      title: newContextTitle.trim(),
+      ...(newContextType === 'link' && newContextUrl && { url: newContextUrl.trim() }),
+      ...(newContextType !== 'link' && newContextContent && { content: newContextContent.trim() }),
+      ...(newContextNotes && { notes: newContextNotes.trim() }),
+    };
+
+    const updatedItems = [...contextItems, newItem];
+    setContextItems(updatedItems);
+    saveContextItemsMutation.mutate(updatedItems);
+
+    // Reset form
+    setNewContextTitle('');
+    setNewContextUrl('');
+    setNewContextContent('');
+    setNewContextNotes('');
+    setShowAddContext(false);
+  };
+
+  const handleRemoveContextItem = (index: number) => {
+    const updatedItems = contextItems.filter((_, i) => i !== index);
+    setContextItems(updatedItems);
+    saveContextItemsMutation.mutate(updatedItems);
   };
 
   const createRunMutation = useMutation({
@@ -260,6 +326,165 @@ export default function TaskDetail() {
               </div>
             </div>
           )}
+
+          {/* Context Items Section */}
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-500">Context & Sources</h3>
+              {(task.status === 'NEW' || task.status === 'CLARIFYING') && (
+                <button
+                  onClick={() => setShowAddContext(!showAddContext)}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Context
+                </button>
+              )}
+            </div>
+
+            {/* Add Context Form */}
+            {showAddContext && (
+              <div className="bg-gray-50 p-4 rounded-md mb-4 space-y-3">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setNewContextType('link')}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
+                      newContextType === 'link' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600'
+                    }`}
+                  >
+                    <Link className="h-4 w-4" /> Link
+                  </button>
+                  <button
+                    onClick={() => setNewContextType('text')}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
+                      newContextType === 'text' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600'
+                    }`}
+                  >
+                    <TextIcon className="h-4 w-4" /> Text
+                  </button>
+                  <button
+                    onClick={() => setNewContextType('decision')}
+                    className={`flex items-center gap-1 px-3 py-1 rounded-md text-sm ${
+                      newContextType === 'decision' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600'
+                    }`}
+                  >
+                    <CheckSquare className="h-4 w-4" /> Decision
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Title *</label>
+                  <input
+                    type="text"
+                    value={newContextTitle}
+                    onChange={(e) => setNewContextTitle(e.target.value)}
+                    placeholder="e.g., Product Requirements Doc"
+                    className="w-full px-3 py-2 border rounded-md text-sm"
+                  />
+                </div>
+
+                {newContextType === 'link' && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">URL</label>
+                    <input
+                      type="url"
+                      value={newContextUrl}
+                      onChange={(e) => setNewContextUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full px-3 py-2 border rounded-md text-sm"
+                    />
+                  </div>
+                )}
+
+                {(newContextType === 'text' || newContextType === 'decision') && (
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      {newContextType === 'decision' ? 'Decision Details' : 'Content'}
+                    </label>
+                    <textarea
+                      value={newContextContent}
+                      onChange={(e) => setNewContextContent(e.target.value)}
+                      placeholder={newContextType === 'decision' ? 'Describe the decision made...' : 'Enter text content...'}
+                      className="w-full px-3 py-2 border rounded-md text-sm h-24"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Notes (optional)</label>
+                  <input
+                    type="text"
+                    value={newContextNotes}
+                    onChange={(e) => setNewContextNotes(e.target.value)}
+                    placeholder="Additional notes..."
+                    className="w-full px-3 py-2 border rounded-md text-sm"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => setShowAddContext(false)}
+                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleAddContextItem}
+                    disabled={!newContextTitle.trim() || saveContextItemsMutation.isPending}
+                    className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {saveContextItemsMutation.isPending ? 'Adding...' : 'Add'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Context Items List */}
+            {contextItems.length > 0 ? (
+              <div className="space-y-2">
+                {contextItems.map((item, index) => (
+                  <div key={index} className="flex items-start gap-3 bg-gray-50 p-3 rounded-md">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {item.type === 'link' && <Link className="h-4 w-4 text-blue-500" />}
+                      {item.type === 'text' && <TextIcon className="h-4 w-4 text-green-500" />}
+                      {item.type === 'decision' && <CheckSquare className="h-4 w-4 text-purple-500" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-gray-800">{item.title}</span>
+                        {item.type === 'link' && item.url && (
+                          <a
+                            href={item.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-500 hover:text-blue-600"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+                      {item.content && (
+                        <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap">{item.content}</p>
+                      )}
+                      {item.notes && (
+                        <p className="text-xs text-gray-400 mt-1 italic">{item.notes}</p>
+                      )}
+                    </div>
+                    {(task.status === 'NEW' || task.status === 'CLARIFYING') && (
+                      <button
+                        onClick={() => handleRemoveContextItem(index)}
+                        className="flex-shrink-0 p-1 text-red-500 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">No context items added yet.</p>
+            )}
+          </div>
 
           {/* Clarification Form - shown when CLARIFYING */}
           {task.status === 'CLARIFYING' && (
