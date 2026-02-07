@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import NewTask from './pages/NewTask';
 import TaskDetail from './pages/TaskDetail';
+import Decisions from './pages/Decisions';
 import Settings from './pages/Settings';
 
 const queryClient = new QueryClient({
@@ -116,6 +117,7 @@ function AppRoutes() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="tasks/new" element={<NewTask />} />
         <Route path="tasks/:taskId" element={<TaskDetail />} />
+        <Route path="decisions" element={<Decisions />} />
         <Route path="settings" element={<Settings />} />
       </Route>
 

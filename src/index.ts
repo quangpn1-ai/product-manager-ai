@@ -14,6 +14,7 @@ import authRoutes from './api/routes/auth.js';
 import orgsRoutes from './api/routes/orgs.js';
 import providerRoutes, { budgetRouter } from './api/routes/providers.js';
 import tasksRoutes from './api/routes/tasks.js';
+import decisionsRoutes from './api/routes/decisions.js';
 import { authenticate, requireOrgMembership } from './api/middleware/auth.js';
 
 const app = express();
@@ -93,6 +94,9 @@ v1Router.use('/orgs/:org_id/budgets', authenticate, requireOrgMembership(), budg
 
 // Task routes (nested under orgs)
 v1Router.use('/orgs/:org_id/tasks', tasksRoutes);
+
+// Decision routes (nested under orgs)
+v1Router.use('/orgs/:org_id/decisions', decisionsRoutes);
 
 // Run routes (get run by ID)
 v1Router.get('/orgs/:org_id/runs/:run_id', authenticate, requireOrgMembership(), async (req, res, next) => {

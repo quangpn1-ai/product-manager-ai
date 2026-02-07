@@ -130,3 +130,27 @@ export const runsApi = {
   cancel: (orgId: string, runId: string) =>
     api.post(`/orgs/${orgId}/runs/${runId}/cancel`),
 };
+
+// Decisions API
+export const decisionsApi = {
+  list: (orgId: string, params?: Record<string, string>) =>
+    api.get(`/orgs/${orgId}/decisions`, { params }),
+
+  get: (orgId: string, decisionId: string) =>
+    api.get(`/orgs/${orgId}/decisions/${decisionId}`),
+
+  create: (orgId: string, data: {
+    summary: string;
+    rationale: string;
+    owner?: string;
+    decided_at?: string;
+    links?: Array<{ title: string; url: string }>;
+    tags?: string[];
+  }) => api.post(`/orgs/${orgId}/decisions`, data),
+
+  update: (orgId: string, decisionId: string, data: Record<string, unknown>) =>
+    api.patch(`/orgs/${orgId}/decisions/${decisionId}`, data),
+
+  delete: (orgId: string, decisionId: string) =>
+    api.delete(`/orgs/${orgId}/decisions/${decisionId}`),
+};
