@@ -59,7 +59,8 @@ const limiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: config.rateLimit.authMax,
+  max: config.env === 'development' ? 0 : config.rateLimit.authMax, // 0 = disabled in dev
+  skip: () => config.env === 'development', // Skip rate limiting in development
   standardHeaders: true,
   legacyHeaders: false,
   message: {
