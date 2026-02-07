@@ -118,6 +118,15 @@ export const tasksApi = {
   exportDocument: (orgId: string, taskId: string, format: string) =>
     api.post(`/orgs/${orgId}/tasks/${taskId}/export`, { format }),
 
+  publishDocument: (orgId: string, taskId: string, config: {
+    platform: 'confluence' | 'notion' | 'webhook';
+    webhook_url?: string;
+    confluence_base_url?: string;
+    confluence_space_key?: string;
+    notion_database_id?: string;
+    api_token?: string;
+  }) => api.post(`/orgs/${orgId}/tasks/${taskId}/publish`, config),
+
   getRecommendations: (orgId: string, taskId: string) =>
     api.get(`/orgs/${orgId}/tasks/${taskId}/recommendations`),
 };

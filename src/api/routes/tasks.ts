@@ -9,6 +9,7 @@ import { logger } from '../../utils/logger.js';
 import { enqueueRun } from '../../services/queue.js';
 import { recommendationService } from '../../services/recommendation-service.js';
 import { auditRepository, AuditActions, createAuditContext } from '../../db/repositories/audit-repository.js';
+import { publishService, PublishPlatform } from '../../services/publish-service.js';
 import type { TaskStatus, ContextItem } from '../../types/index.js';
 
 const router = Router({ mergeParams: true });
@@ -69,6 +70,16 @@ const approveDocSchema = z.object({
 
 const exportDocSchema = z.object({
   format: z.enum(['markdown', 'pdf', 'json']),
+});
+
+const publishDocSchema = z.object({
+  platform: z.enum(['confluence', 'notion', 'webhook']),
+  webhook_url: z.string().url().optional(),
+  confluence_base_url: z.string().url().optional(),
+  confluence_space_key: z.string().optional(),
+  confluence_parent_page_id: z.string().optional(),
+  notion_database_id: z.string().optional(),
+  api_token: z.string().optional(),
 });
 
 // GET /orgs/:org_id/tasks - List tasks
@@ -653,6 +664,56 @@ router.post(
           format,
           content: exportContent,
         },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// POST /orgs/:org_id/tasks/:task_id/publish - Publish document to external platform
+router.post(
+  '/:task_id/publish',
+  authenticate,
+  requireOrgMembership(),
+  validateBody(publishDocSchema),
+  async (req, res, next) => {
+    try {
+      const orgId = req.context!.orgId!;
+      const taskId = req.params['task_id']!;
+
+      const task = await taskRepository.findById(orgId, taskId);
+      if (!task) {
+        throw new NotFoundError('Task');
+      }
+
+      if (!task.documentCurrentId) {
+        throw new ValidationError('No approved document to publish');
+      }
+
+      const result = await publishService.publish(orgId, taskId, task.documentCurrentId, {
+        platform: req.body.platform as PublishPlatform,
+        webhookUrl: req.body.webhook_url,
+        confluenceBaseUrl: req.body.confluence_base_url,
+        confluenceSpaceKey: req.body.confluence_space_key,
+        confluenceParentPageId: req.body.confluence_parent_page_id,
+        notionDatabaseId: req.body.notion_database_id,
+        apiToken: req.body.api_token,
+      });
+
+      if (result.success) {
+        // Audit log
+        await auditRepository.log({
+          ...createAuditContext(req),
+          action: 'document.published',
+          targetType: 'document',
+          targetId: task.documentCurrentId,
+          metadata: { taskId, platform: req.body.platform, url: result.url },
+        });
+      }
+
+      res.json({
+        data: result,
       });
     } catch (error) {
       next(error);

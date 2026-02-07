@@ -24,6 +24,9 @@ import {
   HelpCircle,
   Target,
   Loader2,
+  Send,
+  X,
+  Globe,
 } from 'lucide-react';
 
 interface ContextItem {
@@ -215,6 +218,54 @@ export default function TaskDetail() {
     },
   });
 
+  // Publish state and mutation
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishPlatform, setPublishPlatform] = useState<'webhook' | 'confluence' | 'notion'>('webhook');
+  const [publishUrl, setPublishUrl] = useState('');
+  const [publishToken, setPublishToken] = useState('');
+  const [publishError, setPublishError] = useState('');
+
+  const publishMutation = useMutation({
+    mutationFn: (config: Parameters<typeof tasksApi.publishDocument>[2]) =>
+      tasksApi.publishDocument(currentOrgId!, taskId!, config),
+    onSuccess: (response) => {
+      if (response.data.data.success) {
+        setShowPublishModal(false);
+        queryClient.invalidateQueries({ queryKey: ['task', currentOrgId, taskId] });
+        setPublishUrl('');
+        setPublishToken('');
+      } else {
+        setPublishError(response.data.data.error || 'Publish failed');
+      }
+    },
+    onError: (err: any) => {
+      setPublishError(err.response?.data?.error?.message || 'Failed to publish');
+    },
+  });
+
+  const handlePublish = () => {
+    setPublishError('');
+    const config: Parameters<typeof tasksApi.publishDocument>[2] = {
+      platform: publishPlatform,
+    };
+
+    if (publishPlatform === 'webhook') {
+      if (!publishUrl) {
+        setPublishError('Webhook URL is required');
+        return;
+      }
+      config.webhook_url = publishUrl;
+    } else if (publishPlatform === 'confluence') {
+      config.confluence_base_url = publishUrl || undefined;
+      config.api_token = publishToken || undefined;
+    } else if (publishPlatform === 'notion') {
+      config.notion_database_id = publishUrl || undefined;
+      config.api_token = publishToken || undefined;
+    }
+
+    publishMutation.mutate(config);
+  };
+
   if (isLoading || !task) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -278,16 +329,25 @@ export default function TaskDetail() {
             </button>
           )}
 
-          {/* APPROVED → Export */}
+          {/* APPROVED → Export & Publish */}
           {task.status === 'APPROVED' && (
-            <button
-              onClick={() => exportMutation.mutate('markdown')}
-              disabled={exportMutation.isPending}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              Export Markdown
-            </button>
+            <>
+              <button
+                onClick={() => exportMutation.mutate('markdown')}
+                disabled={exportMutation.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </button>
+              <button
+                onClick={() => setShowPublishModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              >
+                <Send className="h-4 w-4" />
+                Publish
+              </button>
+            </>
           )}
 
           {/* FAILED → Retry */}
@@ -766,6 +826,152 @@ export default function TaskDetail() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Publish Modal */}
+      {showPublishModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full mx-4">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <div className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-medium">Publish Document</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowPublishModal(false);
+                  setPublishError('');
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {publishError && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-700">
+                  {publishError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+                <div className="flex gap-2">
+                  {(['webhook', 'confluence', 'notion'] as const).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPublishPlatform(p)}
+                      className={`px-3 py-2 rounded-md text-sm font-medium capitalize ${
+                        publishPlatform === p
+                          ? 'bg-green-100 text-green-700 border-2 border-green-500'
+                          : 'bg-gray-100 text-gray-700 border-2 border-transparent'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {publishPlatform === 'webhook' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Webhook URL *
+                  </label>
+                  <input
+                    type="url"
+                    value={publishUrl}
+                    onChange={(e) => setPublishUrl(e.target.value)}
+                    placeholder="https://your-endpoint.com/webhook"
+                    className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              )}
+
+              {publishPlatform === 'confluence' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Confluence Base URL
+                    </label>
+                    <input
+                      type="url"
+                      value={publishUrl}
+                      onChange={(e) => setPublishUrl(e.target.value)}
+                      placeholder="https://your-domain.atlassian.net"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      API Token
+                    </label>
+                    <input
+                      type="password"
+                      value={publishToken}
+                      onChange={(e) => setPublishToken(e.target.value)}
+                      placeholder="Your Confluence API token"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              {publishPlatform === 'notion' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Database ID
+                    </label>
+                    <input
+                      type="text"
+                      value={publishUrl}
+                      onChange={(e) => setPublishUrl(e.target.value)}
+                      placeholder="Your Notion database ID"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Integration Token
+                    </label>
+                    <input
+                      type="password"
+                      value={publishToken}
+                      onChange={(e) => setPublishToken(e.target.value)}
+                      placeholder="Your Notion integration token"
+                      className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500"
+                    />
+                  </div>
+                </>
+              )}
+
+              <p className="text-xs text-gray-500">
+                Note: Confluence and Notion integrations require additional setup. Webhook is recommended for quick integrations.
+              </p>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowPublishModal(false);
+                    setPublishError('');
+                  }}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePublish}
+                  disabled={publishMutation.isPending}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
+                >
+                  {publishMutation.isPending ? 'Publishing...' : 'Publish'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
