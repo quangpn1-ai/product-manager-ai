@@ -55,13 +55,13 @@ export default function Organization() {
 
   const { data: invitationsData } = useQuery({
     queryKey: ['org-invitations', currentOrgId],
-    queryFn: () => api.get(`/orgs/${currentOrgId}/invitations`),
+    queryFn: () => orgsApi.getInvitations(currentOrgId!),
     enabled: !!currentOrgId,
   });
 
   const inviteMutation = useMutation({
     mutationFn: (data: { email: string; role: string }) =>
-      api.post(`/orgs/${currentOrgId}/invitations`, data),
+      orgsApi.createInvitations(currentOrgId!, { emails: [data.email], role: data.role }),
     onSuccess: () => {
       setInviteSuccess(true);
       setInviteEmail('');
@@ -78,7 +78,7 @@ export default function Organization() {
 
   const cancelInvitationMutation = useMutation({
     mutationFn: (invitationId: string) =>
-      api.delete(`/orgs/${currentOrgId}/invitations/${invitationId}`),
+      orgsApi.deleteInvitation(currentOrgId!, invitationId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['org-invitations', currentOrgId] });
     },

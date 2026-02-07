@@ -8,6 +8,7 @@ import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import AcceptInvitation from './pages/AcceptInvitation';
 import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import NewTask from './pages/NewTask';
@@ -100,6 +101,7 @@ function AppRoutes() {
       />
 
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/accept-invitation" element={<AcceptInvitation />} />
 
       {/* Protected Routes */}
       <Route
