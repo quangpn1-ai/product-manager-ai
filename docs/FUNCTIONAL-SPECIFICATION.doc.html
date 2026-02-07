@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Tài liệu Đặc tả Chức năng - AI Product Manager MVP</title>
+<style>
+body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; margin: 40px; }
+h1 { font-size: 24pt; color: #1a1a1a; border-bottom: 2px solid #333; padding-bottom: 10px; }
+h2 { font-size: 18pt; color: #333; margin-top: 30px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+h3 { font-size: 14pt; color: #444; margin-top: 20px; }
+h4 { font-size: 12pt; color: #555; margin-top: 15px; }
+table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+th, td { border: 1px solid #666; padding: 8px; text-align: left; }
+th { background-color: #f0f0f0; font-weight: bold; }
+code { background-color: #f5f5f5; padding: 2px 6px; font-family: 'Courier New', monospace; }
+pre { background-color: #f5f5f5; padding: 15px; overflow-x: auto; font-family: 'Courier New', monospace; font-size: 10pt; }
+blockquote { border-left: 4px solid #ccc; margin-left: 0; padding-left: 20px; color: #666; }
+.toc { background-color: #f9f9f9; padding: 20px; margin: 20px 0; }
+.toc a { text-decoration: none; color: #0066cc; }
+</style>
+</head>
+<body>
+
+<h1>Tài liệu Đặc tả Chức năng (Functional Specification)</h1>
+<h1>AI Product Manager MVP</h1>
+
+<blockquote>
+<p>Phiên bản: 1.0<br>
+Cập nhật: 2026-02-07</p>
+</blockquote>
+
+<hr>
+
+<div class="toc">
+<h2>Mục lục</h2>
+<ol>
+<li><a href="#1">Giới thiệu sản phẩm</a></li>
+<li><a href="#2">Người dùng và Phân quyền</a></li>
+<li><a href="#3">Module: Đăng ký & Đăng nhập</a></li>
+<li><a href="#4">Module: Quản lý Tổ chức</a></li>
+<li><a href="#5">Module: Quản lý Task</a></li>
+<li><a href="#6">Module: AI Orchestration</a></li>
+<li><a href="#7">Module: Document Review & Approval</a></li>
+<li><a href="#8">Module: Export & Publish</a></li>
+<li><a href="#9">Module: AI Provider Settings</a></li>
+<li><a href="#10">Module: Budget Management</a></li>
+<li><a href="#11">Module: Decision Log</a></li>
+<li><a href="#12">Module: Audit Log</a></li>
+<li><a href="#13">Module: Dashboard</a></li>
+<li><a href="#14">Phụ lục: Trạng thái Task</a></li>
+</ol>
+</div>
+
+<hr>
+
+<h2 id="1">1. Giới thiệu sản phẩm</h2>
+
+<h3>1.1 Mục đích</h3>
+<p>AI Product Manager (AI-PM) là ứng dụng web giúp chuyển đổi yêu cầu từ stakeholders thành Product Brief có cấu trúc, thông qua quy trình kiểm soát với sự phối hợp của nhiều AI (OpenAI, Claude, Gemini).</p>
+
+<h3>1.2 Vấn đề giải quyết</h3>
+<ul>
+<li>Stakeholder đưa yêu cầu mơ hồ, thiếu chi tiết</li>
+<li>PM mất thời gian làm rõ và viết brief</li>
+<li>Thiếu truy xuất nguồn gốc thông tin</li>
+<li>Không có quy trình review chuẩn</li>
+</ul>
+
+<h3>1.3 Giải pháp</h3>
+<ul>
+<li>Wizard hướng dẫn làm rõ yêu cầu (Clarification)</li>
+<li>Cho phép đính kèm nguồn tham khảo (Context)</li>
+<li>AI tự động sinh brief với multi-step validation</li>
+<li>Quy trình review & approve trước khi publish</li>
+</ul>
+
+<h3>1.4 Nguyên tắc thiết kế</h3>
+<table>
+<tr><th>Nguyên tắc</th><th>Mô tả</th></tr>
+<tr><td>Evidence-first</td><td>Không bịa thông tin; thiếu gì phải đánh dấu</td></tr>
+<tr><td>Approve-to-publish</td><td>Output cần user approve trước khi publish</td></tr>
+<tr><td>Traceability</td><td>Lưu trace đầy đủ (prompts, outputs, costs)</td></tr>
+<tr><td>Multi-tenant</td><td>Dữ liệu cách ly theo Organization</td></tr>
+</table>
+
+<hr>
+
+<h2 id="2">2. Người dùng và Phân quyền</h2>
+
+<h3>2.1 Vai trò (Roles)</h3>
+<table>
+<tr><th>Vai trò</th><th>Mô tả</th><th>Quyền hạn</th></tr>
+<tr><td><strong>Organization Admin</strong></td><td>Quản trị viên tổ chức</td><td>Toàn quyền trong org</td></tr>
+<tr><td><strong>Organization Member</strong></td><td>Thành viên tổ chức</td><td>Xem, tạo, sửa tasks của mình</td></tr>
+</table>
+
+<h3>2.2 Ma trận phân quyền</h3>
+<table>
+<tr><th>Chức năng</th><th>Admin</th><th>Member</th></tr>
+<tr><td>Xem Dashboard</td><td>✅</td><td>✅</td></tr>
+<tr><td>Tạo/Sửa/Xóa Task</td><td>✅</td><td>✅ (của mình)</td></tr>
+<tr><td>Chạy AI Generation</td><td>✅</td><td>✅</td></tr>
+<tr><td>Approve Document</td><td>✅</td><td>✅</td></tr>
+<tr><td>Export/Publish</td><td>✅</td><td>✅</td></tr>
+<tr><td>Xem Decision Log</td><td>✅</td><td>✅</td></tr>
+<tr><td>Tạo Decision</td><td>✅</td><td>✅</td></tr>
+<tr><td>Mời thành viên</td><td>✅</td><td>❌</td></tr>
+<tr><td>Xóa thành viên</td><td>✅</td><td>❌</td></tr>
+<tr><td>Cấu hình AI Provider</td><td>✅</td><td>❌</td></tr>
+<tr><td>Cài đặt Budget</td><td>✅</td><td>❌</td></tr>
+<tr><td>Xem Audit Log</td><td>✅</td><td>❌</td></tr>
+<tr><td>Cập nhật cài đặt Org</td><td>✅</td><td>❌</td></tr>
+</table>
+
+<hr>
+
+<h2 id="3">3. Module: Đăng ký & Đăng nhập</h2>
+
+<h3>3.1 Đăng ký (Sign Up)</h3>
+<p><strong>Mô tả:</strong> Người dùng mới tạo tài khoản và tùy chọn tạo Organization.</p>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User truy cập trang Đăng ký</li>
+<li>Nhập thông tin: Email, Password, Tên</li>
+<li>(Tùy chọn) Nhập tên Organization nếu muốn tạo org mới</li>
+<li>Nhấn "Đăng ký"</li>
+<li>Hệ thống gửi email xác thực (có hiệu lực 24 giờ)</li>
+<li>User click link trong email để xác thực</li>
+<li>Chuyển đến trang Đăng nhập</li>
+</ol>
+
+<p><strong>Quy tắc nghiệp vụ:</strong></p>
+<ul>
+<li>Email phải unique trong hệ thống</li>
+<li>Password tối thiểu 8 ký tự, có chữ hoa, chữ thường, số</li>
+<li>Nếu tạo org: User tự động trở thành Admin của org đó</li>
+<li>Email chưa xác thực → không thể đăng nhập</li>
+</ul>
+
+<p><strong>Trường nhập liệu:</strong></p>
+<table>
+<tr><th>Trường</th><th>Bắt buộc</th><th>Validation</th></tr>
+<tr><td>Email</td><td>✅</td><td>Format email hợp lệ</td></tr>
+<tr><td>Password</td><td>✅</td><td>Min 8 ký tự, có uppercase, lowercase, số</td></tr>
+<tr><td>Họ tên</td><td>✅</td><td>Min 2 ký tự</td></tr>
+<tr><td>Tên Organization</td><td>❌</td><td>Min 2 ký tự nếu có</td></tr>
+</table>
+
+<h3>3.2 Đăng nhập (Login)</h3>
+<p><strong>Mô tả:</strong> User đã có tài khoản đăng nhập vào hệ thống.</p>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User nhập Email và Password</li>
+<li>Nhấn "Đăng nhập"</li>
+<li>Hệ thống xác thực thông tin</li>
+<li>Nếu thành công: Chuyển đến Dashboard</li>
+<li>Nếu thất bại: Hiển thị lỗi</li>
+</ol>
+
+<p><strong>Quy tắc nghiệp vụ:</strong></p>
+<ul>
+<li>Email chưa xác thực → Báo lỗi, yêu cầu xác thực email</li>
+<li>Sai password 5 lần → Khóa tạm 15 phút</li>
+<li>Session timeout: Access token 15 phút, Refresh token 30 ngày</li>
+</ul>
+
+<p><strong>Thông báo lỗi:</strong></p>
+<table>
+<tr><th>Trường hợp</th><th>Thông báo</th></tr>
+<tr><td>Sai email/password</td><td>"Email hoặc mật khẩu không đúng"</td></tr>
+<tr><td>Email chưa xác thực</td><td>"Vui lòng xác thực email trước khi đăng nhập"</td></tr>
+<tr><td>Tài khoản bị khóa</td><td>"Tài khoản đã bị tạm khóa. Vui lòng thử lại sau 15 phút"</td></tr>
+</table>
+
+<h3>3.3 Quên mật khẩu</h3>
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User nhấn "Quên mật khẩu" ở trang Login</li>
+<li>Nhập email</li>
+<li>Hệ thống gửi link reset (có hiệu lực 1 giờ)</li>
+<li>User click link, nhập mật khẩu mới</li>
+<li>Hệ thống cập nhật và logout tất cả sessions</li>
+</ol>
+
+<h3>3.4 Chấp nhận lời mời</h3>
+<p><strong>Mô tả:</strong> User được mời vào Organization.</p>
+
+<p><strong>Luồng chính (User chưa có tài khoản):</strong></p>
+<ol>
+<li>User nhận email mời, click link</li>
+<li>Hiển thị form tạo tài khoản với email đã điền sẵn</li>
+<li>User nhập password và họ tên</li>
+<li>Hệ thống tạo account + thêm vào org</li>
+<li>Chuyển đến Dashboard của org</li>
+</ol>
+
+<p><strong>Luồng chính (User đã có tài khoản):</strong></p>
+<ol>
+<li>User nhận email mời, click link</li>
+<li>Nếu đã đăng nhập: Tự động thêm vào org</li>
+<li>Nếu chưa đăng nhập: Yêu cầu đăng nhập trước</li>
+</ol>
+
+<p><strong>Quy tắc nghiệp vụ:</strong></p>
+<ul>
+<li>Link mời hết hạn sau 72 giờ</li>
+<li>Mỗi email chỉ có 1 lời mời pending cho 1 org</li>
+</ul>
+
+<hr>
+
+<h2 id="4">4. Module: Quản lý Tổ chức</h2>
+
+<h3>4.1 Thông tin Organization</h3>
+<p><strong>Mô tả:</strong> Admin xem và cập nhật thông tin org.</p>
+
+<p><strong>Thông tin hiển thị:</strong></p>
+<ul>
+<li>Tên Organization</li>
+<li>Slug (URL identifier)</li>
+<li>Timezone</li>
+<li>Ngôn ngữ mặc định</li>
+<li>Allowed email domains (optional)</li>
+</ul>
+
+<p><strong>Chức năng:</strong></p>
+<ul>
+<li>Cập nhật tên, timezone, ngôn ngữ</li>
+<li>Cập nhật allowed email domains</li>
+</ul>
+
+<h3>4.2 Quản lý thành viên</h3>
+<p><strong>Mô tả:</strong> Admin quản lý thành viên trong org.</p>
+
+<p><strong>Danh sách thành viên hiển thị:</strong></p>
+<table>
+<tr><th>Cột</th><th>Mô tả</th></tr>
+<tr><td>Tên</td><td>Họ tên thành viên</td></tr>
+<tr><td>Email</td><td>Email</td></tr>
+<tr><td>Vai trò</td><td>Admin / Member</td></tr>
+<tr><td>Trạng thái</td><td>Active / Suspended</td></tr>
+<tr><td>Ngày tham gia</td><td>Ngày join org</td></tr>
+</table>
+
+<p><strong>Chức năng:</strong></p>
+<table>
+<tr><th>Hành động</th><th>Mô tả</th><th>Điều kiện</th></tr>
+<tr><td>Đổi vai trò</td><td>Chuyển Admin ↔ Member</td><td>Không thể tự đổi vai trò mình</td></tr>
+<tr><td>Tạm khóa</td><td>Suspend member</td><td>Không thể tự suspend mình</td></tr>
+<tr><td>Xóa</td><td>Xóa khỏi org</td><td>Phải có ít nhất 1 Admin còn lại</td></tr>
+</table>
+
+<h3>4.3 Mời thành viên</h3>
+<p><strong>Mô tả:</strong> Admin mời người mới vào org.</p>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>Admin nhấn "Mời thành viên"</li>
+<li>Nhập danh sách email (có thể nhiều email, phân cách bằng dấu phẩy)</li>
+<li>Chọn vai trò: Admin hoặc Member</li>
+<li>Nhấn "Gửi lời mời"</li>
+<li>Hệ thống gửi email cho từng người</li>
+</ol>
+
+<p><strong>Quản lý lời mời:</strong></p>
+<ul>
+<li>Xem danh sách lời mời đang pending</li>
+<li>Hủy lời mời chưa được accept</li>
+</ul>
+
+<p><strong>Quy tắc nghiệp vụ:</strong></p>
+<ul>
+<li>Nếu org có allowed_email_domains: Chỉ chấp nhận email thuộc domain đó</li>
+<li>Không gửi lời mời cho email đã là thành viên</li>
+<li>Lời mời hết hạn sau 72 giờ</li>
+</ul>
+
+<hr>
+
+<h2 id="5">5. Module: Quản lý Task</h2>
+
+<h3>5.1 Danh sách Task</h3>
+<p><strong>Mô tả:</strong> Hiển thị tất cả tasks trong org.</p>
+
+<p><strong>Bộ lọc:</strong></p>
+<table>
+<tr><th>Filter</th><th>Mô tả</th></tr>
+<tr><td>Trạng thái</td><td>NEW, CLARIFYING, READY, DRAFT, IN_REVIEW, APPROVED, etc.</td></tr>
+<tr><td>Owner</td><td>Người tạo task</td></tr>
+<tr><td>Workflow</td><td>Loại workflow</td></tr>
+<tr><td>Tìm kiếm</td><td>Tìm theo title hoặc request text</td></tr>
+</table>
+
+<p><strong>Cột hiển thị:</strong></p>
+<table>
+<tr><th>Cột</th><th>Mô tả</th></tr>
+<tr><td>Title</td><td>Tiêu đề task</td></tr>
+<tr><td>Status</td><td>Trạng thái hiện tại</td></tr>
+<tr><td>Owner</td><td>Người tạo</td></tr>
+<tr><td>Workflow</td><td>Loại workflow</td></tr>
+<tr><td>Created</td><td>Ngày tạo</td></tr>
+<tr><td>Updated</td><td>Ngày cập nhật</td></tr>
+</table>
+
+<p><strong>Hành động:</strong></p>
+<ul>
+<li>Click vào row → Xem chi tiết</li>
+<li>Nút "Tạo Task mới"</li>
+</ul>
+
+<h3>5.2 Tạo Task mới</h3>
+<p><strong>Mô tả:</strong> User tạo task mới để bắt đầu quy trình.</p>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User nhấn "Tạo Task mới"</li>
+<li>Chọn Workflow (ví dụ: Product Brief, Feature Spec, etc.)</li>
+<li>Nhập tiêu đề</li>
+<li>Nhập yêu cầu ban đầu (request text)</li>
+<li>Nhấn "Tạo"</li>
+<li>Hệ thống tạo task với trạng thái NEW</li>
+<li>Chuyển đến trang chi tiết task</li>
+</ol>
+
+<p><strong>Trường nhập liệu:</strong></p>
+<table>
+<tr><th>Trường</th><th>Bắt buộc</th><th>Validation</th></tr>
+<tr><td>Workflow</td><td>✅</td><td>Chọn từ danh sách</td></tr>
+<tr><td>Title</td><td>✅</td><td>Min 5 ký tự, max 200</td></tr>
+<tr><td>Request Text</td><td>✅</td><td>Min 20 ký tự</td></tr>
+</table>
+
+<h3>5.3 Chi tiết Task</h3>
+<p><strong>Mô tả:</strong> Xem và thao tác với task.</p>
+
+<p><strong>Các tab:</strong></p>
+
+<h4>Tab 1: Overview</h4>
+<ul>
+<li>Thông tin cơ bản (title, status, owner, dates)</li>
+<li>Request text ban đầu</li>
+<li><strong>Clarifications</strong> - Danh sách Q&A làm rõ yêu cầu</li>
+<li><strong>Context Items</strong> - Nguồn tham khảo đính kèm</li>
+<li><strong>AI Recommendations</strong> - Gợi ý từ AI về độ sẵn sàng</li>
+</ul>
+
+<h4>Tab 2: Document</h4>
+<ul>
+<li>Xem nội dung brief được AI generate</li>
+<li>Các version của document</li>
+<li>Nút Approve / Reject</li>
+<li>Nút Export / Publish</li>
+</ul>
+
+<h4>Tab 3: Runs</h4>
+<ul>
+<li>Lịch sử các lần chạy AI</li>
+<li>Chi tiết từng stage (Generator, Critic, Cross-Questioner, Synthesizer)</li>
+<li>Thông tin tokens và cost</li>
+</ul>
+
+<h3>5.4 Clarification (Làm rõ yêu cầu)</h3>
+<p><strong>Mô tả:</strong> User bổ sung thông tin làm rõ yêu cầu ban đầu.</p>
+
+<p><strong>Cách thức:</strong></p>
+<ol>
+<li>Xem danh sách câu hỏi gợi ý từ hệ thống</li>
+<li>Với mỗi câu hỏi, user nhập câu trả lời</li>
+<li>User có thể thêm Q&A tùy ý</li>
+</ol>
+
+<p><strong>Cấu trúc Clarification:</strong></p>
+<pre>
+- Question: "Đối tượng người dùng mục tiêu là ai?"
+  Answer: "Doanh nghiệp vừa và nhỏ, từ 10-100 nhân viên"
+
+- Question: "Deadline dự kiến?"
+  Answer: "Q2 2026"
+</pre>
+
+<h3>5.5 Context Items (Nguồn tham khảo)</h3>
+<p><strong>Mô tả:</strong> User đính kèm các nguồn thông tin liên quan.</p>
+
+<p><strong>Loại Context Items:</strong></p>
+<table>
+<tr><th>Loại</th><th>Mô tả</th><th>Ví dụ</th></tr>
+<tr><td>Link</td><td>URL trang web</td><td>Link Confluence, Google Docs</td></tr>
+<tr><td>Text</td><td>Nội dung text tự nhập</td><td>Ghi chú từ meeting</td></tr>
+<tr><td>Decision</td><td>Link đến Decision trong hệ thống</td><td>Quyết định liên quan</td></tr>
+</table>
+
+<p><strong>Thao tác:</strong></p>
+<ul>
+<li>Thêm context item mới</li>
+<li>Sửa context item</li>
+<li>Xóa context item</li>
+</ul>
+
+<h3>5.6 AI Recommendations</h3>
+<p><strong>Mô tả:</strong> AI phân tích task và đưa ra gợi ý.</p>
+
+<p><strong>Thông tin hiển thị:</strong></p>
+<table>
+<tr><th>Thành phần</th><th>Mô tả</th></tr>
+<tr><td>Readiness Score</td><td>Điểm sẵn sàng 0-100%</td></tr>
+<tr><td>Summary</td><td>Tóm tắt tình trạng</td></tr>
+<tr><td>Recommendations</td><td>Danh sách gợi ý cụ thể</td></tr>
+</table>
+
+<p><strong>Loại Recommendations:</strong></p>
+<table>
+<tr><th>Loại</th><th>Mô tả</th><th>Ví dụ</th></tr>
+<tr><td>Clarification</td><td>Cần làm rõ thêm</td><td>"Cần xác định rõ budget"</td></tr>
+<tr><td>Context</td><td>Cần thêm nguồn</td><td>"Nên đính kèm research data"</td></tr>
+<tr><td>Action</td><td>Hành động tiếp theo</td><td>"Có thể bắt đầu generate"</td></tr>
+<tr><td>Warning</td><td>Cảnh báo</td><td>"Thiếu thông tin về timeline"</td></tr>
+</table>
+
+<p><strong>Điều kiện hiển thị:</strong></p>
+<ul>
+<li>Chỉ hiển thị khi task ở trạng thái CLARIFYING hoặc READY_FOR_GENERATION</li>
+</ul>
+
+<hr>
+
+<h2 id="6">6. Module: AI Orchestration</h2>
+
+<h3>6.1 Mô tả</h3>
+<p>Hệ thống sử dụng nhiều AI model để tạo Product Brief qua 4 bước:</p>
+
+<table>
+<tr><th>Bước</th><th>Vai trò</th><th>AI Model</th><th>Nhiệm vụ</th></tr>
+<tr><td>1</td><td>Generator</td><td>OpenAI GPT-4.1</td><td>Tạo draft brief đầu tiên</td></tr>
+<tr><td>2</td><td>Critic</td><td>Claude 3.5 Sonnet</td><td>Phê bình, tìm lỗi</td></tr>
+<tr><td>3</td><td>Cross-Questioner</td><td>Gemini 1.5 Pro</td><td>Đặt câu hỏi bổ sung</td></tr>
+<tr><td>4</td><td>Synthesizer</td><td>OpenAI GPT-4.1</td><td>Tổng hợp thành brief cuối</td></tr>
+</table>
+
+<h3>6.2 Chạy Generation</h3>
+<p><strong>Điều kiện tiên quyết:</strong></p>
+<ul>
+<li>Task phải ở trạng thái READY_FOR_GENERATION</li>
+<li>Org phải có ít nhất 1 AI Provider được cấu hình</li>
+<li>Budget chưa vượt hard limit</li>
+</ul>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User nhấn nút "Generate Brief"</li>
+<li>Hệ thống kiểm tra điều kiện</li>
+<li>Tạo Run mới, đưa vào queue</li>
+<li>Worker xử lý tuần tự 4 stages</li>
+<li>Mỗi stage output được validate JSON schema</li>
+<li>Nếu thành công: Tạo Document, chuyển task sang DRAFT_GENERATED</li>
+<li>Nếu thất bại: Chuyển task sang FAILED</li>
+</ol>
+
+<p><strong>Xử lý lỗi:</strong></p>
+<table>
+<tr><th>Lỗi</th><th>Xử lý</th></tr>
+<tr><td>Provider không available</td><td>Fallback sang provider khác</td></tr>
+<tr><td>Vượt budget</td><td>Dừng và thông báo</td></tr>
+<tr><td>Output không đúng schema</td><td>Retry tối đa 3 lần</td></tr>
+<tr><td>Timeout</td><td>Đánh dấu FAILED</td></tr>
+</table>
+
+<h3>6.3 Xem Run History</h3>
+<p><strong>Thông tin hiển thị cho mỗi Run:</strong></p>
+<ul>
+<li>ID và thời gian</li>
+<li>Trạng thái: QUEUED, RUNNING, SUCCEEDED, FAILED</li>
+<li>Tổng thời gian chạy</li>
+<li>Tổng tokens và cost</li>
+</ul>
+
+<p><strong>Chi tiết từng Stage:</strong></p>
+<table>
+<tr><th>Thông tin</th><th>Mô tả</th></tr>
+<tr><td>Role</td><td>Generator, Critic, etc.</td></tr>
+<tr><td>Provider</td><td>openai, anthropic, google</td></tr>
+<tr><td>Model</td><td>gpt-4.1, claude-3.5-sonnet, etc.</td></tr>
+<tr><td>Input Tokens</td><td>Số tokens đầu vào</td></tr>
+<tr><td>Output Tokens</td><td>Số tokens đầu ra</td></tr>
+<tr><td>Cost</td><td>Chi phí (cents)</td></tr>
+<tr><td>Status</td><td>PENDING, RUNNING, SUCCEEDED, FAILED</td></tr>
+<tr><td>Output</td><td>JSON output (expand để xem)</td></tr>
+</table>
+
+<hr>
+
+<h2 id="7">7. Module: Document Review & Approval</h2>
+
+<h3>7.1 Xem Document</h3>
+<p><strong>Mô tả:</strong> Xem Product Brief được AI generate.</p>
+
+<p><strong>Cấu trúc Brief:</strong></p>
+<table>
+<tr><th>Section</th><th>Mô tả</th></tr>
+<tr><td>Executive Summary</td><td>Tóm tắt tổng quan</td></tr>
+<tr><td>Problem Statement</td><td>Vấn đề cần giải quyết</td></tr>
+<tr><td>Proposed Solution</td><td>Giải pháp đề xuất</td></tr>
+<tr><td>Target Users</td><td>Đối tượng người dùng</td></tr>
+<tr><td>Key Features</td><td>Tính năng chính</td></tr>
+<tr><td>Success Metrics</td><td>Tiêu chí thành công</td></tr>
+<tr><td>Timeline</td><td>Lộ trình dự kiến</td></tr>
+<tr><td>Risks & Mitigations</td><td>Rủi ro và giải pháp</td></tr>
+<tr><td>Open Questions</td><td>Câu hỏi còn mở</td></tr>
+<tr><td>Needs Validation</td><td>Thông tin cần xác nhận</td></tr>
+</table>
+
+<h3>7.2 Approve Document</h3>
+<p><strong>Mô tả:</strong> User phê duyệt brief.</p>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User xem xét nội dung brief</li>
+<li>Nhấn "Approve"</li>
+<li>Hệ thống:
+    <ul>
+    <li>Đánh dấu document là approved</li>
+    <li>Cập nhật task sang trạng thái APPROVED</li>
+    <li>Ghi audit log</li>
+    </ul>
+</li>
+</ol>
+
+<p><strong>Điều kiện:</strong></p>
+<ul>
+<li>Task phải ở DRAFT_GENERATED hoặc IN_REVIEW</li>
+<li>User phải là member của org</li>
+</ul>
+
+<h3>7.3 Reject Document</h3>
+<p><strong>Mô tả:</strong> User từ chối brief, yêu cầu generate lại.</p>
+
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>User nhấn "Reject"</li>
+<li>(Optional) Nhập lý do reject</li>
+<li>Hệ thống chuyển task về READY_FOR_GENERATION</li>
+<li>User có thể sửa clarifications/context rồi generate lại</li>
+</ol>
+
+<hr>
+
+<h2 id="8">8. Module: Export & Publish</h2>
+
+<h3>8.1 Export Document</h3>
+<p><strong>Mô tả:</strong> Xuất document ra file.</p>
+
+<p><strong>Định dạng hỗ trợ:</strong></p>
+<table>
+<tr><th>Format</th><th>Mô tả</th></tr>
+<tr><td>Markdown</td><td>File .md</td></tr>
+<tr><td>PDF</td><td>In qua browser</td></tr>
+<tr><td>JSON</td><td>Raw data</td></tr>
+</table>
+
+<p><strong>Luồng Export PDF:</strong></p>
+<ol>
+<li>User nhấn "Export PDF"</li>
+<li>Hệ thống generate HTML với styling</li>
+<li>Mở cửa sổ print của browser</li>
+<li>User chọn "Save as PDF"</li>
+</ol>
+
+<h3>8.2 Publish Document</h3>
+<p><strong>Mô tả:</strong> Đẩy document lên platform khác.</p>
+
+<p><strong>Platforms hỗ trợ:</strong></p>
+<table>
+<tr><th>Platform</th><th>Trạng thái</th><th>Mô tả</th></tr>
+<tr><td>Webhook</td><td>✅ Hoạt động</td><td>POST JSON đến URL tùy chọn</td></tr>
+<tr><td>Confluence</td><td>🔜 Sắp có</td><td>Tạo/cập nhật page</td></tr>
+<tr><td>Notion</td><td>🔜 Sắp có</td><td>Tạo database entry</td></tr>
+</table>
+
+<p><strong>Luồng Publish Webhook:</strong></p>
+<ol>
+<li>User nhấn "Publish"</li>
+<li>Chọn platform "Webhook"</li>
+<li>Nhập Webhook URL</li>
+<li>Nhấn "Publish"</li>
+<li>Hệ thống POST document JSON đến URL</li>
+<li>Hiển thị kết quả (success/fail)</li>
+</ol>
+
+<p><strong>Cấu trúc Webhook Payload:</strong></p>
+<pre>
+{
+  "task_id": "uuid",
+  "document_id": "uuid",
+  "title": "Product Brief Title",
+  "content": { ... },
+  "approved_by": "user@email.com",
+  "approved_at": "2026-02-07T10:00:00Z",
+  "published_at": "2026-02-07T10:05:00Z"
+}
+</pre>
+
+<hr>
+
+<h2 id="9">9. Module: AI Provider Settings</h2>
+
+<h3>9.1 Mô tả</h3>
+<p>Admin cấu hình các AI providers để sử dụng cho orchestration.</p>
+
+<p><strong>Providers hỗ trợ:</strong></p>
+<table>
+<tr><th>Provider</th><th>Models</th></tr>
+<tr><td>OpenAI</td><td>gpt-4.1, gpt-4o, gpt-3.5-turbo</td></tr>
+<tr><td>Anthropic</td><td>claude-3.5-sonnet, claude-3-opus</td></tr>
+<tr><td>Google</td><td>gemini-1.5-pro, gemini-1.5-flash</td></tr>
+</table>
+
+<h3>9.2 Chế độ sử dụng</h3>
+<table>
+<tr><th>Chế độ</th><th>Mô tả</th></tr>
+<tr><td>BYOK (Bring Your Own Key)</td><td>User nhập API key của mình</td></tr>
+<tr><td>Managed</td><td>Sử dụng key của platform (nếu có)</td></tr>
+</table>
+
+<h3>9.3 Cấu hình Provider</h3>
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>Admin vào Settings > AI Providers</li>
+<li>Chọn provider muốn cấu hình</li>
+<li>Chọn chế độ: BYOK hoặc Managed</li>
+<li>Nếu BYOK: Nhập API key</li>
+<li>Chọn default model</li>
+<li>Chọn allowed models (optional)</li>
+<li>Nhấn "Save"</li>
+</ol>
+
+<p><strong>Bảo mật API Key:</strong></p>
+<ul>
+<li>Key được mã hóa AES-256-GCM trước khi lưu</li>
+<li>Chỉ hiển thị 4 ký tự cuối</li>
+<li>Không bao giờ trả về key qua API</li>
+</ul>
+
+<hr>
+
+<h2 id="10">10. Module: Budget Management</h2>
+
+<h3>10.1 Mô tả</h3>
+<p>Admin đặt giới hạn chi tiêu để kiểm soát cost AI.</p>
+
+<h3>10.2 Loại Budget</h3>
+<table>
+<tr><th>Loại</th><th>Mô tả</th></tr>
+<tr><td>Daily</td><td>Reset mỗi ngày 00:00 UTC</td></tr>
+<tr><td>Monthly</td><td>Reset ngày 1 mỗi tháng</td></tr>
+</table>
+
+<h3>10.3 Loại Limit</h3>
+<table>
+<tr><th>Loại</th><th>Mô tả</th><th>Hành động khi vượt</th></tr>
+<tr><td>Soft Limit</td><td>Cảnh báo</td><td>Hiển thị warning, vẫn cho chạy</td></tr>
+<tr><td>Hard Limit</td><td>Chặn</td><td>Không cho chạy generation</td></tr>
+</table>
+
+<h3>10.4 Cấu hình Budget</h3>
+<p><strong>Luồng chính:</strong></p>
+<ol>
+<li>Admin vào Settings > Budget</li>
+<li>Nhập Soft Limit (USD)</li>
+<li>Nhập Hard Limit (USD)</li>
+<li>Chọn kỳ: Daily hoặc Monthly</li>
+<li>Nhấn "Save"</li>
+</ol>
+
+<h3>10.5 Xem Usage</h3>
+<p><strong>Thông tin hiển thị:</strong></p>
+<table>
+<tr><th>Metric</th><th>Mô tả</th></tr>
+<tr><td>Current Spend</td><td>Chi tiêu hiện tại trong kỳ</td></tr>
+<tr><td>Soft Limit</td><td>Ngưỡng cảnh báo</td></tr>
+<tr><td>Hard Limit</td><td>Ngưỡng chặn</td></tr>
+<tr><td>% Used</td><td>Phần trăm đã dùng</td></tr>
+<tr><td>By Provider</td><td>Breakdown theo provider</td></tr>
+</table>
+
+<hr>
+
+<h2 id="11">11. Module: Decision Log</h2>
+
+<h3>11.1 Mô tả</h3>
+<p>Lưu trữ các quyết định quan trọng trong dự án để tham khảo.</p>
+
+<h3>11.2 Danh sách Decisions</h3>
+<p><strong>Cột hiển thị:</strong></p>
+<table>
+<tr><th>Cột</th><th>Mô tả</th></tr>
+<tr><td>Summary</td><td>Tóm tắt quyết định</td></tr>
+<tr><td>Owner</td><td>Người quyết định</td></tr>
+<tr><td>Date</td><td>Ngày quyết định</td></tr>
+<tr><td>Tags</td><td>Nhãn phân loại</td></tr>
+</table>
+
+<p><strong>Bộ lọc:</strong></p>
+<ul>
+<li>Tìm kiếm theo summary</li>
+<li>Filter theo tag</li>
+</ul>
+
+<h3>11.3 Tạo Decision</h3>
+<p><strong>Trường nhập liệu:</strong></p>
+<table>
+<tr><th>Trường</th><th>Bắt buộc</th><th>Mô tả</th></tr>
+<tr><td>Summary</td><td>✅</td><td>Tóm tắt ngắn gọn</td></tr>
+<tr><td>Rationale</td><td>✅</td><td>Lý do đưa ra quyết định</td></tr>
+<tr><td>Owner</td><td>✅</td><td>Người chịu trách nhiệm</td></tr>
+<tr><td>Decided Date</td><td>✅</td><td>Ngày quyết định</td></tr>
+<tr><td>Links</td><td>❌</td><td>URLs liên quan</td></tr>
+<tr><td>Tags</td><td>❌</td><td>Nhãn phân loại</td></tr>
+</table>
+
+<h3>11.4 Liên kết với Task</h3>
+<ul>
+<li>Khi thêm Context Item cho Task, có thể chọn link đến Decision</li>
+<li>Giúp trace nguồn gốc thông tin trong brief</li>
+</ul>
+
+<hr>
+
+<h2 id="12">12. Module: Audit Log</h2>
+
+<h3>12.1 Mô tả</h3>
+<p>Ghi lại tất cả hành động quan trọng trong hệ thống để audit.</p>
+<p><strong>Chỉ Admin mới xem được Audit Log.</strong></p>
+
+<h3>12.2 Các hành động được ghi</h3>
+<table>
+<tr><th>Nhóm</th><th>Hành động</th></tr>
+<tr><td>User</td><td>Login, Logout, Signup, Password Reset</td></tr>
+<tr><td>Organization</td><td>Created, Updated, Member Invited, Member Removed, Role Changed</td></tr>
+<tr><td>Task</td><td>Created, Updated, Deleted, Status Changed</td></tr>
+<tr><td>Document</td><td>Generated, Approved, Rejected, Exported</td></tr>
+<tr><td>Run</td><td>Started, Completed, Failed, Cancelled</td></tr>
+<tr><td>Provider</td><td>Configured, Key Updated</td></tr>
+<tr><td>Budget</td><td>Updated</td></tr>
+<tr><td>Decision</td><td>Created, Updated, Deleted</td></tr>
+</table>
+
+<h3>12.3 Xem Audit Log</h3>
+<p><strong>Cột hiển thị:</strong></p>
+<table>
+<tr><th>Cột</th><th>Mô tả</th></tr>
+<tr><td>Timestamp</td><td>Thời điểm xảy ra</td></tr>
+<tr><td>Action</td><td>Loại hành động</td></tr>
+<tr><td>Actor</td><td>Người thực hiện</td></tr>
+<tr><td>Target</td><td>Đối tượng bị tác động</td></tr>
+<tr><td>IP Address</td><td>Địa chỉ IP</td></tr>
+<tr><td>Details</td><td>Chi tiết bổ sung</td></tr>
+</table>
+
+<p><strong>Bộ lọc:</strong></p>
+<ul>
+<li>Khoảng thời gian (from - to)</li>
+<li>Loại action</li>
+<li>Actor (người thực hiện)</li>
+</ul>
+
+<hr>
+
+<h2 id="13">13. Module: Dashboard</h2>
+
+<h3>13.1 Mô tả</h3>
+<p>Trang tổng quan hiển thị metrics quan trọng của org.</p>
+
+<h3>13.2 Các thành phần</h3>
+
+<h4>Tasks Overview</h4>
+<table>
+<tr><th>Metric</th><th>Mô tả</th></tr>
+<tr><td>Total Tasks</td><td>Tổng số tasks</td></tr>
+<tr><td>By Status</td><td>Breakdown theo trạng thái</td></tr>
+<tr><td>My Tasks</td><td>Tasks của user hiện tại</td></tr>
+</table>
+
+<h4>Usage Stats (kỳ hiện tại)</h4>
+<table>
+<tr><th>Metric</th><th>Mô tả</th></tr>
+<tr><td>Total Cost</td><td>Tổng chi phí</td></tr>
+<tr><td>Total Tokens</td><td>Tổng tokens đã dùng</td></tr>
+<tr><td>By Provider</td><td>Breakdown theo provider</td></tr>
+</table>
+
+<h4>Budget Status</h4>
+<table>
+<tr><th>Metric</th><th>Mô tả</th></tr>
+<tr><td>Current Spend</td><td>Chi tiêu hiện tại</td></tr>
+<tr><td>Soft Limit</td><td>Ngưỡng cảnh báo</td></tr>
+<tr><td>Hard Limit</td><td>Ngưỡng chặn</td></tr>
+<tr><td>Progress Bar</td><td>Thanh tiến trình trực quan</td></tr>
+</table>
+
+<h4>Recent Runs</h4>
+<ul>
+<li>5 runs gần nhất</li>
+<li>Hiển thị: Task title, Status, Duration, Cost</li>
+</ul>
+
+<hr>
+
+<h2 id="14">Phụ lục: Trạng thái Task</h2>
+
+<h3>State Diagram</h3>
+<pre>
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│    ┌─────┐                                                  │
+│    │ NEW │                                                  │
+│    └──┬──┘                                                  │
+│       │                                                     │
+│       ▼                                                     │
+│  ┌──────────┐                                               │
+│  │CLARIFYING│◄─────────────────────────────────────┐        │
+│  └────┬─────┘                                      │        │
+│       │                                            │        │
+│       ▼                                            │        │
+│  ┌─────────────────────┐     ┌────────┐           │        │
+│  │READY_FOR_GENERATION │◄────│ FAILED │           │        │
+│  └──────────┬──────────┘     └────────┘           │        │
+│             │                                      │        │
+│             ▼                                      │        │
+│    ┌────────────────┐                              │        │
+│    │DRAFT_GENERATED │                              │        │
+│    └───────┬────────┘                              │        │
+│            │                                       │        │
+│            ▼                                       │        │
+│      ┌───────────┐                                 │        │
+│      │ IN_REVIEW │─────────────────────────────────┘        │
+│      └─────┬─────┘         (reject)                         │
+│            │                                                │
+│            ▼ (approve)                                      │
+│       ┌──────────┐                                          │
+│       │ APPROVED │                                          │
+│       └────┬─────┘                                          │
+│            │                                                │
+│       ┌────┴────┐                                           │
+│       ▼         ▼                                           │
+│  ┌──────────┐ ┌───────────┐                                 │
+│  │ EXPORTED │ │ PUBLISHED │                                 │
+│  └──────────┘ └───────────┘                                 │
+│                                                             │
+│  * Từ bất kỳ trạng thái nào cũng có thể chuyển sang ON_HOLD │
+│  * Từ ON_HOLD có thể quay về CLARIFYING hoặc READY          │
+└─────────────────────────────────────────────────────────────┘
+</pre>
+
+<h3>Mô tả các trạng thái</h3>
+<table>
+<tr><th>Trạng thái</th><th>Mô tả</th><th>Hành động tiếp theo</th></tr>
+<tr><td>NEW</td><td>Vừa tạo</td><td>Bắt đầu clarify</td></tr>
+<tr><td>CLARIFYING</td><td>Đang làm rõ yêu cầu</td><td>Thêm clarifications, context</td></tr>
+<tr><td>READY_FOR_GENERATION</td><td>Sẵn sàng generate</td><td>Nhấn Generate</td></tr>
+<tr><td>DRAFT_GENERATED</td><td>Đã có draft</td><td>Review document</td></tr>
+<tr><td>IN_REVIEW</td><td>Đang review</td><td>Approve hoặc Reject</td></tr>
+<tr><td>APPROVED</td><td>Đã phê duyệt</td><td>Export hoặc Publish</td></tr>
+<tr><td>EXPORTED</td><td>Đã xuất file</td><td>-</td></tr>
+<tr><td>PUBLISHED</td><td>Đã publish</td><td>-</td></tr>
+<tr><td>FAILED</td><td>Generation thất bại</td><td>Retry hoặc Hold</td></tr>
+<tr><td>ON_HOLD</td><td>Tạm dừng</td><td>Resume khi sẵn sàng</td></tr>
+</table>
+
+<hr>
+
+<h2>Changelog</h2>
+<table>
+<tr><th>Version</th><th>Date</th><th>Changes</th></tr>
+<tr><td>1.0</td><td>2026-02-07</td><td>Initial release</td></tr>
+</table>
+
+<hr>
+
+<p><em>Tài liệu này được cập nhật bởi AI Product Manager Team.</em></p>
+
+</body>
+</html>
