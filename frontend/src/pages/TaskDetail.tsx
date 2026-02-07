@@ -19,6 +19,11 @@ import {
   FileText as TextIcon,
   CheckSquare,
   ExternalLink,
+  Lightbulb,
+  AlertCircle,
+  HelpCircle,
+  Target,
+  Loader2,
 } from 'lucide-react';
 
 interface ContextItem {
@@ -27,6 +32,20 @@ interface ContextItem {
   url?: string;
   content?: string;
   notes?: string;
+}
+
+interface Recommendation {
+  type: 'clarification' | 'context' | 'action' | 'warning';
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  suggestedAction?: string;
+}
+
+interface RecommendationResult {
+  recommendations: Recommendation[];
+  summary: string;
+  readinessScore: number;
 }
 
 export default function TaskDetail() {
@@ -67,10 +86,18 @@ export default function TaskDetail() {
     enabled: !!currentOrgId && !!taskId,
   });
 
+  const { data: recommendationsData, isLoading: recommendationsLoading, refetch: refetchRecommendations } = useQuery({
+    queryKey: ['recommendations', currentOrgId, taskId],
+    queryFn: () => tasksApi.getRecommendations(currentOrgId!, taskId!),
+    enabled: !!currentOrgId && !!taskId && ['NEW', 'CLARIFYING'].includes(taskData?.data?.data?.status || ''),
+    staleTime: 60000, // Cache for 1 minute
+  });
+
   const task = taskData?.data?.data;
   const documents = documentsData?.data?.data || [];
   const runs = runsData?.data?.data || [];
   const latestDocument = documents[0];
+  const recommendations: RecommendationResult | null = recommendationsData?.data?.data || null;
 
   // Load clarifications when task loads
   useEffect(() => {
@@ -299,6 +326,122 @@ export default function TaskDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="bg-white rounded-lg shadow-sm border p-6 space-y-6">
+          {/* AI Recommendations - Show for NEW and CLARIFYING status */}
+          {(task.status === 'NEW' || task.status === 'CLARIFYING') && (
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-100">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-medium text-gray-900">AI Recommendations</h3>
+                </div>
+                <button
+                  onClick={() => refetchRecommendations()}
+                  disabled={recommendationsLoading}
+                  className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  {recommendationsLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Refresh
+                </button>
+              </div>
+
+              {recommendationsLoading ? (
+                <div className="flex items-center gap-2 text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Analyzing task...</span>
+                </div>
+              ) : recommendations ? (
+                <div className="space-y-3">
+                  {/* Readiness Score */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-gray-200 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full transition-all ${
+                          recommendations.readinessScore >= 70
+                            ? 'bg-green-500'
+                            : recommendations.readinessScore >= 50
+                            ? 'bg-yellow-500'
+                            : 'bg-red-500'
+                        }`}
+                        style={{ width: `${recommendations.readinessScore}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-gray-600 w-12">
+                      {recommendations.readinessScore}%
+                    </span>
+                  </div>
+
+                  {/* Summary */}
+                  <p className="text-sm text-gray-600">{recommendations.summary}</p>
+
+                  {/* Recommendations List */}
+                  {recommendations.recommendations.length > 0 && (
+                    <div className="space-y-2 mt-3">
+                      {recommendations.recommendations.map((rec, index) => (
+                        <div
+                          key={index}
+                          className={`p-3 rounded-md border ${
+                            rec.priority === 'high'
+                              ? 'bg-red-50 border-red-200'
+                              : rec.priority === 'medium'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : 'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div className="flex-shrink-0 mt-0.5">
+                              {rec.type === 'clarification' && (
+                                <HelpCircle className="h-4 w-4 text-blue-500" />
+                              )}
+                              {rec.type === 'context' && (
+                                <Link className="h-4 w-4 text-green-500" />
+                              )}
+                              {rec.type === 'action' && (
+                                <Target className="h-4 w-4 text-purple-500" />
+                              )}
+                              {rec.type === 'warning' && (
+                                <AlertCircle className="h-4 w-4 text-orange-500" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-gray-800">
+                                  {rec.title}
+                                </span>
+                                <span
+                                  className={`text-xs px-1.5 py-0.5 rounded ${
+                                    rec.priority === 'high'
+                                      ? 'bg-red-100 text-red-700'
+                                      : rec.priority === 'medium'
+                                      ? 'bg-yellow-100 text-yellow-700'
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}
+                                >
+                                  {rec.priority}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-1">{rec.description}</p>
+                              {rec.suggestedAction && (
+                                <p className="text-xs text-blue-600 mt-1 font-medium">
+                                  → {rec.suggestedAction}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No recommendations available.</p>
+              )}
+            </div>
+          )}
+
           <div>
             <h3 className="text-sm font-medium text-gray-500 mb-2">Request</h3>
             <p className="text-gray-900 whitespace-pre-wrap">{task.request_text}</p>

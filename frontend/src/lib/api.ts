@@ -111,6 +111,9 @@ export const tasksApi = {
 
   exportDocument: (orgId: string, taskId: string, format: string) =>
     api.post(`/orgs/${orgId}/tasks/${taskId}/export`, { format }),
+
+  getRecommendations: (orgId: string, taskId: string) =>
+    api.get(`/orgs/${orgId}/tasks/${taskId}/recommendations`),
 };
 
 // Runs API

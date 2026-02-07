@@ -7,6 +7,7 @@ import { validateBody, validateQuery, paginationSchema, uuidSchema } from '../va
 import { NotFoundError, ConflictError, ValidationError } from '../../utils/errors.js';
 import { logger } from '../../utils/logger.js';
 import { enqueueRun } from '../../services/queue.js';
+import { recommendationService } from '../../services/recommendation-service.js';
 import type { TaskStatus, ContextItem } from '../../types/index.js';
 
 const router = Router({ mergeParams: true });
@@ -222,6 +223,27 @@ router.get('/:task_id', authenticate, requireOrgMembership(), async (req, res, n
         updated_at: task.updatedAt,
         allowed_transitions: taskRepository.getAllowedTransitions(task.status),
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /orgs/:org_id/tasks/:task_id/recommendations - Get AI recommendations
+router.get('/:task_id/recommendations', authenticate, requireOrgMembership(), async (req, res, next) => {
+  try {
+    const orgId = req.context!.orgId!;
+    const taskId = req.params['task_id']!;
+
+    const task = await taskRepository.findById(orgId, taskId);
+    if (!task) {
+      throw new NotFoundError('Task');
+    }
+
+    const result = await recommendationService.generateRecommendations(orgId, task);
+
+    res.json({
+      data: result,
     });
   } catch (error) {
     next(error);
