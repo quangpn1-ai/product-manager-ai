@@ -131,6 +131,15 @@ export const runsApi = {
     api.post(`/orgs/${orgId}/runs/${runId}/cancel`),
 };
 
+// Audit API
+export const auditApi = {
+  list: (orgId: string, params?: Record<string, string>) =>
+    api.get(`/orgs/${orgId}/audit`, { params }),
+
+  getActions: (orgId: string) =>
+    api.get(`/orgs/${orgId}/audit/actions`),
+};
+
 // Decisions API
 export const decisionsApi = {
   list: (orgId: string, params?: Record<string, string>) =>

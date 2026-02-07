@@ -55,6 +55,15 @@ export default function Settings() {
                 </button>
               );
             })}
+            <div className="border-t my-2" />
+            <Link
+              to="/audit"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-gray-700 hover:bg-gray-50"
+            >
+              <Shield className="h-5 w-5 text-gray-400" />
+              <span className="font-medium">Audit Log</span>
+              <ChevronRight className="h-4 w-4 ml-auto" />
+            </Link>
           </nav>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { NotFoundError, ConflictError, ValidationError } from '../../utils/error
 import { logger } from '../../utils/logger.js';
 import { enqueueRun } from '../../services/queue.js';
 import { recommendationService } from '../../services/recommendation-service.js';
+import { auditRepository, AuditActions, createAuditContext } from '../../db/repositories/audit-repository.js';
 import type { TaskStatus, ContextItem } from '../../types/index.js';
 
 const router = Router({ mergeParams: true });
@@ -168,6 +169,15 @@ router.post(
       });
 
       logger.info({ taskId: task.id, orgId, actorId: userId }, 'Task created');
+
+      // Audit log
+      await auditRepository.log({
+        ...createAuditContext(req),
+        action: AuditActions.TASK_CREATED,
+        targetType: 'task',
+        targetId: task.id,
+        metadata: { title: task.title, workflowId: task.workflowId },
+      });
 
       res.status(201).json({
         data: {
@@ -533,6 +543,15 @@ router.post(
 
         logger.info({ docId, taskId, orgId, actorId: userId }, 'Document approved');
 
+        // Audit log
+        await auditRepository.log({
+          ...createAuditContext(req),
+          action: AuditActions.DOCUMENT_APPROVED,
+          targetType: 'document',
+          targetId: docId,
+          metadata: { taskId },
+        });
+
         res.json({
           data: {
             id: approved!.id,
@@ -543,6 +562,15 @@ router.post(
       } else {
         // Return to review
         await taskRepository.update(orgId, taskId, { status: 'READY_FOR_GENERATION' });
+
+        // Audit log
+        await auditRepository.log({
+          ...createAuditContext(req),
+          action: AuditActions.DOCUMENT_REJECTED,
+          targetType: 'document',
+          targetId: doc.id,
+          metadata: { taskId },
+        });
 
         res.json({
           data: {
