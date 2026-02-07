@@ -67,6 +67,12 @@ export const orgsApi = {
   get: (orgId: string) => api.get(`/orgs/${orgId}`),
   getWorkflows: (orgId: string) => api.get(`/orgs/${orgId}/workflows`),
   getMembers: (orgId: string) => api.get(`/orgs/${orgId}/members`),
+  getStats: (orgId: string) => api.get(`/orgs/${orgId}/stats`),
+  getInvitations: (orgId: string) => api.get(`/orgs/${orgId}/invitations`),
+  createInvitations: (orgId: string, data: { emails: string[]; role: string; expires_in_hours?: number }) =>
+    api.post(`/orgs/${orgId}/invitations`, data),
+  deleteInvitation: (orgId: string, invitationId: string) =>
+    api.delete(`/orgs/${orgId}/invitations/${invitationId}`),
 };
 
 // Tasks API

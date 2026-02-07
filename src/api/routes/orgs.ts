@@ -431,6 +431,123 @@ router.delete('/:org_id/members/:user_id', authenticate, requireOrgAdmin, async 
   }
 });
 
+// GET /orgs/:org_id/stats - Get dashboard stats
+router.get('/:org_id/stats', authenticate, requireOrgMembership(), async (req, res, next) => {
+  try {
+    const orgId = req.params['org_id']!;
+
+    // Get task counts by status
+    const taskStatsResult = await query<{ status: string; count: string }>(
+      `SELECT status, COUNT(*)::text as count
+       FROM tasks
+       WHERE org_id = $1
+       GROUP BY status`,
+      [orgId]
+    );
+
+    const statusCounts: Record<string, number> = {};
+    for (const row of taskStatsResult.rows) {
+      statusCounts[row.status] = parseInt(row.count, 10);
+    }
+
+    // Get usage stats for current month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const usageResult = await query<{
+      total_input_tokens: string;
+      total_output_tokens: string;
+      total_cost_cents: string;
+      provider: string;
+    }>(
+      `SELECT
+         provider,
+         SUM(input_tokens)::text as total_input_tokens,
+         SUM(output_tokens)::text as total_output_tokens,
+         SUM(cost_cents)::text as total_cost_cents
+       FROM usage_ledger
+       WHERE org_id = $1 AND created_at >= $2
+       GROUP BY provider`,
+      [orgId, startOfMonth]
+    );
+
+    const usageByProvider: Record<string, { inputTokens: number; outputTokens: number; costCents: number }> = {};
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCostCents = 0;
+
+    for (const row of usageResult.rows) {
+      const inputTokens = parseInt(row.total_input_tokens || '0', 10);
+      const outputTokens = parseInt(row.total_output_tokens || '0', 10);
+      const costCents = parseInt(row.total_cost_cents || '0', 10);
+
+      usageByProvider[row.provider] = { inputTokens, outputTokens, costCents };
+      totalInputTokens += inputTokens;
+      totalOutputTokens += outputTokens;
+      totalCostCents += costCents;
+    }
+
+    // Get recent runs
+    const recentRunsResult = await query<Record<string, unknown>>(
+      `SELECT r.id, r.task_id, r.status, r.started_at, r.finished_at, t.title as task_title
+       FROM runs r
+       LEFT JOIN tasks t ON r.task_id = t.id
+       WHERE r.org_id = $1
+       ORDER BY r.created_at DESC
+       LIMIT 10`,
+      [orgId]
+    );
+
+    const recentRuns = recentRunsResult.rows.map((row) => ({
+      id: row.id,
+      taskId: row.task_id,
+      taskTitle: row.task_title,
+      status: row.status,
+      startedAt: row.started_at,
+      finishedAt: row.finished_at,
+    }));
+
+    // Get budget info
+    const budgetResult = await query<Record<string, unknown>>(
+      `SELECT period, soft_limit_cents, hard_limit_cents
+       FROM org_budgets
+       WHERE org_id = $1`,
+      [orgId]
+    );
+
+    const budgets: Record<string, { softLimit: number; hardLimit: number }> = {};
+    for (const row of budgetResult.rows) {
+      budgets[row.period as string] = {
+        softLimit: parseInt(String(row.soft_limit_cents || '0'), 10),
+        hardLimit: parseInt(String(row.hard_limit_cents || '0'), 10),
+      };
+    }
+
+    res.json({
+      data: {
+        tasks: {
+          byStatus: statusCounts,
+          total: Object.values(statusCounts).reduce((sum, count) => sum + count, 0),
+        },
+        usage: {
+          period: 'monthly',
+          byProvider: usageByProvider,
+          total: {
+            inputTokens: totalInputTokens,
+            outputTokens: totalOutputTokens,
+            costCents: totalCostCents,
+          },
+        },
+        budgets,
+        recentRuns,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // GET /orgs/:org_id/workflows - List workflows
 router.get('/:org_id/workflows', authenticate, requireOrgMembership(), async (req, res, next) => {
   try {
