@@ -648,9 +648,67 @@ router.post(
             exportContent += '\n';
           }
         }
+      } else if (format === 'pdf') {
+        // Generate print-friendly HTML for PDF conversion
+        const content = doc.contentJson as { final?: Record<string, unknown> };
+        const brief = content.final ?? content;
+
+        let bodyHtml = '';
+        if (brief && typeof brief === 'object') {
+          for (const [key, value] of Object.entries(brief)) {
+            const title = key.replace(/_/g, ' ').replace(/([A-Z])/g, ' $1').trim();
+            bodyHtml += `<h2 style="color:#333;border-bottom:1px solid #ddd;padding-bottom:8px;margin-top:24px;">${title.charAt(0).toUpperCase() + title.slice(1)}</h2>`;
+
+            if (Array.isArray(value)) {
+              bodyHtml += '<ul style="margin:12px 0;padding-left:24px;">';
+              for (const item of value) {
+                if (typeof item === 'object' && item !== null) {
+                  bodyHtml += `<li style="margin:8px 0;">${JSON.stringify(item)}</li>`;
+                } else {
+                  bodyHtml += `<li style="margin:8px 0;">${item}</li>`;
+                }
+              }
+              bodyHtml += '</ul>';
+            } else if (typeof value === 'object' && value !== null) {
+              bodyHtml += `<pre style="background:#f5f5f5;padding:12px;border-radius:4px;overflow-x:auto;">${JSON.stringify(value, null, 2)}</pre>`;
+            } else {
+              bodyHtml += `<p style="margin:12px 0;line-height:1.6;">${value}</p>`;
+            }
+          }
+        }
+
+        exportContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${doc.title}</title>
+  <style>
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      color: #333;
+      line-height: 1.6;
+    }
+    h1 { color: #1a1a1a; font-size: 28px; margin-bottom: 8px; }
+    .meta { color: #666; font-size: 14px; margin-bottom: 32px; }
+    h2 { font-size: 18px; }
+    pre { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>${doc.title}</h1>
+  <p class="meta">Generated on ${new Date().toLocaleDateString()}</p>
+  ${bodyHtml}
+</body>
+</html>`;
       } else {
-        // PDF would require additional library - for MVP, return error
-        throw new ValidationError('PDF export not yet implemented');
+        throw new ValidationError(`Unsupported format: ${format}`);
       }
 
       // Update document and task

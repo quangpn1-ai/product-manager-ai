@@ -27,6 +27,7 @@ import {
   Send,
   X,
   Globe,
+  FileDown,
 } from 'lucide-react';
 
 interface ContextItem {
@@ -218,6 +219,23 @@ export default function TaskDetail() {
     },
   });
 
+  const exportPdfMutation = useMutation({
+    mutationFn: () => tasksApi.exportDocument(currentOrgId!, taskId!, 'pdf'),
+    onSuccess: (response) => {
+      const htmlContent = response.data.data.content;
+      // Open in new window for printing
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        // Delay print to ensure content is loaded
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+    },
+  });
+
   // Publish state and mutation
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishPlatform, setPublishPlatform] = useState<'webhook' | 'confluence' | 'notion'>('webhook');
@@ -335,14 +353,22 @@ export default function TaskDetail() {
               <button
                 onClick={() => exportMutation.mutate('markdown')}
                 disabled={exportMutation.isPending}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 text-sm"
               >
                 <Download className="h-4 w-4" />
-                Export
+                Markdown
+              </button>
+              <button
+                onClick={() => exportPdfMutation.mutate()}
+                disabled={exportPdfMutation.isPending}
+                className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 text-sm"
+              >
+                <FileDown className="h-4 w-4" />
+                PDF
               </button>
               <button
                 onClick={() => setShowPublishModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
               >
                 <Send className="h-4 w-4" />
                 Publish
