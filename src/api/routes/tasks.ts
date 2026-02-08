@@ -23,6 +23,7 @@ const createTaskSchema = z.object({
   due_date: z.string().datetime().optional(),
   urgency: z.enum(['low', 'medium', 'high', 'critical']).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
+  project_id: uuidSchema.nullable().optional(), // Link to project for context
 });
 
 const updateTaskSchema = z.object({
@@ -45,12 +46,14 @@ const updateTaskSchema = z.object({
     'NEW', 'CLARIFYING', 'READY_FOR_GENERATION', 'DRAFT_GENERATED',
     'IN_REVIEW', 'APPROVED', 'EXPORTED', 'PUBLISHED', 'ON_HOLD', 'FAILED'
   ]).optional(),
+  project_id: uuidSchema.nullable().optional(), // Link/unlink project
 });
 
 const taskFiltersSchema = paginationSchema.extend({
   status: z.string().optional(),
   owner_id: uuidSchema.optional(),
   workflow_id: uuidSchema.optional(),
+  project_id: uuidSchema.optional(),
   search: z.string().max(255).optional(),
 });
 
@@ -96,6 +99,7 @@ router.get(
         status?: TaskStatus | TaskStatus[];
         ownerId?: string;
         workflowId?: string;
+        projectId?: string;
         search?: string;
       } = {};
 
@@ -108,6 +112,9 @@ router.get(
       }
       if (req.query['workflow_id']) {
         filters.workflowId = req.query['workflow_id'] as string;
+      }
+      if (req.query['project_id']) {
+        filters.projectId = req.query['project_id'] as string;
       }
       if (req.query['search']) {
         filters.search = req.query['search'] as string;
@@ -122,6 +129,7 @@ router.get(
         data: tasks.map((task) => ({
           id: task.id,
           workflow_id: task.workflowId,
+          project_id: (task as any).projectId,
           title: task.title,
           status: task.status,
           request_text: task.requestText,
@@ -177,6 +185,7 @@ router.post(
         dueDate: req.body.due_date ? new Date(req.body.due_date) : undefined,
         urgency: req.body.urgency,
         tags: req.body.tags,
+        projectId: req.body.project_id,
       });
 
       logger.info({ taskId: task.id, orgId, actorId: userId }, 'Task created');
@@ -194,6 +203,7 @@ router.post(
         data: {
           id: task.id,
           workflow_id: task.workflowId,
+          project_id: (task as any).projectId,
           title: task.title,
           status: task.status,
           request_text: task.requestText,
@@ -227,6 +237,7 @@ router.get('/:task_id', authenticate, requireOrgMembership(), async (req, res, n
       data: {
         id: task.id,
         workflow_id: task.workflowId,
+        project_id: (task as any).projectId,
         title: task.title,
         status: task.status,
         request_text: task.requestText,
@@ -298,6 +309,7 @@ router.patch(
         contextItemsJson: req.body.context_items_json as ContextItem[] | undefined,
         selectedOption: req.body.selected_option,
         status: req.body.status as TaskStatus | undefined,
+        projectId: req.body.project_id,
       });
 
       logger.info({ taskId, orgId, actorId: req.context!.userId, statusChange: req.body.status }, 'Task updated');
@@ -306,6 +318,7 @@ router.patch(
         data: {
           id: task!.id,
           workflow_id: task!.workflowId,
+          project_id: (task as any)!.projectId,
           title: task!.title,
           status: task!.status,
           request_text: task!.requestText,

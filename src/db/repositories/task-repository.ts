@@ -27,6 +27,7 @@ interface CreateTaskInput {
   dueDate?: Date;
   urgency?: string;
   tags?: string[];
+  projectId?: string; // Link to project for context
 }
 
 interface UpdateTaskInput {
@@ -41,12 +42,14 @@ interface UpdateTaskInput {
   selectedOption?: string;
   documentCurrentId?: string;
   status?: TaskStatus;
+  projectId?: string | null; // Link/unlink project
 }
 
 interface TaskFilters {
   status?: TaskStatus | TaskStatus[];
   ownerId?: string;
   workflowId?: string;
+  projectId?: string;
   search?: string;
 }
 
@@ -94,6 +97,11 @@ export class TaskRepository {
       values.push(filters.workflowId);
     }
 
+    if (filters.projectId) {
+      conditions.push(`project_id = $${paramIndex++}`);
+      values.push(filters.projectId);
+    }
+
     if (filters.search) {
       conditions.push(`(title ILIKE $${paramIndex} OR request_text ILIKE $${paramIndex})`);
       values.push(`%${filters.search}%`);
@@ -127,8 +135,8 @@ export class TaskRepository {
   async create(input: CreateTaskInput): Promise<Task> {
     const result = await query<Record<string, unknown>>(
       `INSERT INTO tasks
-       (org_id, workflow_id, created_by, owner_id, title, status, request_text, requester_name, due_date, urgency, tags)
-       VALUES ($1, $2, $3, $4, $5, 'NEW', $6, $7, $8, $9, $10)
+       (org_id, workflow_id, created_by, owner_id, title, status, request_text, requester_name, due_date, urgency, tags, project_id)
+       VALUES ($1, $2, $3, $4, $5, 'NEW', $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         input.orgId,
@@ -141,6 +149,7 @@ export class TaskRepository {
         input.dueDate ?? null,
         input.urgency ?? null,
         input.tags ?? null,
+        input.projectId ?? null,
       ]
     );
     return toCamelCase<Task>(result.rows[0]!);
@@ -204,6 +213,10 @@ export class TaskRepository {
     if (input.status !== undefined) {
       updates.push(`status = $${paramIndex++}`);
       values.push(input.status);
+    }
+    if (input.projectId !== undefined) {
+      updates.push(`project_id = $${paramIndex++}`);
+      values.push(input.projectId);
     }
 
     if (updates.length === 0) {

@@ -229,6 +229,7 @@ export interface Task {
   id: string;
   orgId: string;
   workflowId: string;
+  projectId: string | null;
   createdBy: string;
   ownerId: string;
   title: string;

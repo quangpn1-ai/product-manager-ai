@@ -2,6 +2,7 @@ import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import { taskRepository, documentRepository, runRepository } from '../../db/repositories/task-repository.js';
 import { providerRepository } from '../../db/repositories/provider-repository.js';
+import { projectRepository, type ProjectDocument, type ProjectContextRule } from '../../db/repositories/project-repository.js';
 import { query, toCamelCase, toCamelCaseArray } from '../../db/index.js';
 import { getProviderAdapter, getDefaultModel } from '../providers/index.js';
 import { logger } from '../../utils/logger.js';
@@ -21,7 +22,177 @@ interface StageOutput {
   output: Record<string, unknown>;
 }
 
+interface ProjectContext {
+  projectId: string;
+  projectName: string;
+  documents: ProjectDocument[];
+  rules: ProjectContextRule[];
+  formattedContext: string;
+}
+
 export class OrchestrationService {
+  /**
+   * Load project context (documents + rules) for AI injection
+   */
+  private async loadProjectContext(projectId: string): Promise<ProjectContext | null> {
+    try {
+      // Get project details
+      const projectResult = await query<Record<string, unknown>>(
+        'SELECT id, name FROM projects WHERE id = $1',
+        [projectId]
+      );
+
+      if (projectResult.rows.length === 0) {
+        logger.warn({ projectId }, 'Project not found for context loading');
+        return null;
+      }
+
+      const project = toCamelCase<{ id: string; name: string }>(projectResult.rows[0]!);
+
+      // Load active documents and rules in parallel
+      const [documents, rules] = await Promise.all([
+        projectRepository.getActiveDocuments(projectId),
+        projectRepository.getActiveRules(projectId),
+      ]);
+
+      // Format context for injection
+      const formattedContext = this.formatProjectContext(project.name, documents, rules);
+
+      logger.info(
+        { projectId, documentCount: documents.length, ruleCount: rules.length },
+        'Project context loaded'
+      );
+
+      return {
+        projectId: project.id,
+        projectName: project.name,
+        documents,
+        rules,
+        formattedContext,
+      };
+    } catch (error) {
+      logger.error({ projectId, error }, 'Failed to load project context');
+      return null;
+    }
+  }
+
+  /**
+   * Format project context into a string for prompt injection
+   */
+  private formatProjectContext(
+    projectName: string,
+    documents: ProjectDocument[],
+    rules: ProjectContextRule[]
+  ): string {
+    const sections: string[] = [];
+
+    // Header
+    sections.push(`=== PROJECT CONTEXT: ${projectName} ===\n`);
+
+    // Context Rules Section
+    if (rules.length > 0) {
+      sections.push('## Project Rules and Guidelines\n');
+
+      // Group rules by category
+      const rulesByCategory = new Map<string, ProjectContextRule[]>();
+      for (const rule of rules) {
+        const existing = rulesByCategory.get(rule.category) || [];
+        existing.push(rule);
+        rulesByCategory.set(rule.category, existing);
+      }
+
+      // Format each category
+      const categoryLabels: Record<string, string> = {
+        constraint: 'Constraints (MUST follow)',
+        standard: 'Standards and Conventions',
+        tone: 'Tone and Communication Style',
+        do_not: 'DO NOT (Prohibited Actions)',
+      };
+
+      for (const [category, categoryRules] of rulesByCategory) {
+        sections.push(`### ${categoryLabels[category] || category}`);
+        for (const rule of categoryRules) {
+          sections.push(`- ${rule.ruleText}`);
+        }
+        sections.push('');
+      }
+    }
+
+    // Documents Section
+    if (documents.length > 0) {
+      sections.push('## Project Knowledge Base\n');
+
+      // Sort by priority (high first) and type
+      const sortedDocs = [...documents].sort((a, b) => {
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        return (priorityOrder[a.priority] || 1) - (priorityOrder[b.priority] || 1);
+      });
+
+      // Group by type
+      const docsByType = new Map<string, ProjectDocument[]>();
+      for (const doc of sortedDocs) {
+        const existing = docsByType.get(doc.type) || [];
+        existing.push(doc);
+        docsByType.set(doc.type, existing);
+      }
+
+      const typeLabels: Record<string, string> = {
+        functional_spec: 'Functional Specifications',
+        technical_spec: 'Technical Specifications',
+        api_doc: 'API Documentation',
+        business_rules: 'Business Rules',
+        glossary: 'Glossary and Terminology',
+        other: 'Other Documents',
+      };
+
+      for (const [type, typeDocs] of docsByType) {
+        sections.push(`### ${typeLabels[type] || type}`);
+
+        for (const doc of typeDocs) {
+          if (doc.contentText) {
+            sections.push(`#### ${doc.title} (v${doc.version})`);
+
+            // Truncate content if too long (max 2000 tokens ~ 8000 chars per doc)
+            const maxChars = 8000;
+            let content = doc.contentText;
+            if (content.length > maxChars) {
+              content = content.substring(0, maxChars) + '\n... [content truncated]';
+            }
+            sections.push(content);
+            sections.push('');
+          }
+        }
+      }
+    }
+
+    sections.push('=== END PROJECT CONTEXT ===\n');
+
+    return sections.join('\n');
+  }
+
+  /**
+   * Record which documents were used in a run
+   */
+  private async recordContextUsage(
+    runId: string,
+    documents: ProjectDocument[]
+  ): Promise<void> {
+    try {
+      for (const doc of documents) {
+        const tokensFromDoc = doc.contentText
+          ? Math.ceil(doc.contentText.length / 4) // ~4 chars per token
+          : undefined;
+
+        await projectRepository.recordContextUsage(runId, doc.id, tokensFromDoc);
+      }
+
+      logger.info({ runId, documentCount: documents.length }, 'Context usage recorded');
+    } catch (error) {
+      logger.error({ runId, error }, 'Failed to record context usage');
+      // Non-critical - don't fail the run
+    }
+  }
+
   /**
    * Execute a workflow run
    */
@@ -53,6 +224,12 @@ export class OrchestrationService {
       return;
     }
     const workflow = toCamelCase<Workflow>(workflowResult.rows[0]!);
+
+    // Load project context if task is linked to a project
+    let projectContext: ProjectContext | null = null;
+    if (task.projectId) {
+      projectContext = await this.loadProjectContext(task.projectId);
+    }
 
     // Update run status to RUNNING
     await runRepository.updateStatus(orgId, runId, 'RUNNING');
@@ -89,7 +266,8 @@ export class OrchestrationService {
             task,
             workflow,
             stageDef,
-            stageOutputs
+            stageOutputs,
+            projectContext
           );
 
           stageOutputs.set(stageDef.id, result.output);
@@ -172,6 +350,11 @@ export class OrchestrationService {
           documentCurrentId: doc.id,
         });
 
+        // Record context usage if project context was used
+        if (projectContext && projectContext.documents.length > 0) {
+          await this.recordContextUsage(runId, projectContext.documents);
+        }
+
         await runRepository.updateStatus(orgId, runId, 'SUCCEEDED');
 
         logger.info({ runId, docId: doc.id }, 'Run completed successfully');
@@ -203,7 +386,8 @@ export class OrchestrationService {
     task: Task,
     workflow: Workflow,
     stageDef: WorkflowStageDefinition,
-    previousOutputs: Map<string, Record<string, unknown>>
+    previousOutputs: Map<string, Record<string, unknown>>,
+    projectContext: ProjectContext | null
   ): Promise<{
     output: Record<string, unknown>;
     inputTokens: number;
@@ -252,8 +436,8 @@ export class OrchestrationService {
 
     const promptTemplate = toCamelCase<{ template: string }>(promptResult.rows[0]!);
 
-    // Render prompt
-    const renderedPrompt = this.renderPrompt(promptTemplate.template, task, previousOutputs);
+    // Render prompt with project context
+    const renderedPrompt = this.renderPrompt(promptTemplate.template, task, previousOutputs, projectContext);
 
     // Update stage with rendered prompt
     await runRepository.updateStage(orgId, run.id, stageDef.id, {
@@ -336,12 +520,13 @@ export class OrchestrationService {
   }
 
   /**
-   * Render a prompt template with task data and previous stage outputs
+   * Render a prompt template with task data, previous stage outputs, and project context
    */
   private renderPrompt(
     template: string,
     task: Task,
-    previousOutputs: Map<string, Record<string, unknown>>
+    previousOutputs: Map<string, Record<string, unknown>>,
+    projectContext: ProjectContext | null
   ): string {
     let rendered = template;
 
@@ -370,6 +555,57 @@ export class OrchestrationService {
 
     // Replace decisions (placeholder for now)
     rendered = rendered.replace(/\{\{decisions\}\}/g, '[]');
+
+    // Inject project context if available
+    if (projectContext) {
+      // Replace project context placeholder
+      rendered = rendered.replace(
+        /\{\{project_context\}\}/g,
+        projectContext.formattedContext
+      );
+
+      // Replace project name
+      rendered = rendered.replace(
+        /\{\{project\.name\}\}/g,
+        projectContext.projectName
+      );
+
+      // Replace project rules JSON
+      rendered = rendered.replace(
+        /\{\{project\.rules_json\}\}/g,
+        JSON.stringify(
+          projectContext.rules.map((r) => ({
+            category: r.category,
+            rule: r.ruleText,
+            priority: r.priority,
+          })),
+          null,
+          2
+        )
+      );
+
+      // Replace project documents JSON (metadata only, not full content)
+      rendered = rendered.replace(
+        /\{\{project\.documents_json\}\}/g,
+        JSON.stringify(
+          projectContext.documents.map((d) => ({
+            id: d.id,
+            title: d.title,
+            type: d.type,
+            version: d.version,
+            priority: d.priority,
+          })),
+          null,
+          2
+        )
+      );
+    } else {
+      // Remove project context placeholders if no project context
+      rendered = rendered.replace(/\{\{project_context\}\}/g, '');
+      rendered = rendered.replace(/\{\{project\.name\}\}/g, '');
+      rendered = rendered.replace(/\{\{project\.rules_json\}\}/g, '[]');
+      rendered = rendered.replace(/\{\{project\.documents_json\}\}/g, '[]');
+    }
 
     return rendered;
   }
