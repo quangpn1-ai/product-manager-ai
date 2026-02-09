@@ -172,3 +172,73 @@ export const decisionsApi = {
   delete: (orgId: string, decisionId: string) =>
     api.delete(`/orgs/${orgId}/decisions/${decisionId}`),
 };
+
+// Projects API
+export const projectsApi = {
+  list: (orgId: string, params?: Record<string, string>) =>
+    api.get(`/orgs/${orgId}/projects`, { params }),
+
+  get: (orgId: string, projectId: string) =>
+    api.get(`/orgs/${orgId}/projects/${projectId}`),
+
+  create: (orgId: string, data: {
+    name: string;
+    slug?: string;
+    description?: string;
+    domain?: 'FinTech' | 'HealthTech' | 'E-commerce' | 'SaaS' | 'Other';
+  }) => api.post(`/orgs/${orgId}/projects`, data),
+
+  update: (orgId: string, projectId: string, data: Record<string, unknown>) =>
+    api.patch(`/orgs/${orgId}/projects/${projectId}`, data),
+
+  delete: (orgId: string, projectId: string) =>
+    api.delete(`/orgs/${orgId}/projects/${projectId}`),
+
+  archive: (orgId: string, projectId: string) =>
+    api.post(`/orgs/${orgId}/projects/${projectId}/archive`),
+
+  unarchive: (orgId: string, projectId: string) =>
+    api.post(`/orgs/${orgId}/projects/${projectId}/unarchive`),
+
+  // Documents
+  listDocuments: (orgId: string, projectId: string, params?: Record<string, string>) =>
+    api.get(`/orgs/${orgId}/projects/${projectId}/documents`, { params }),
+
+  getDocument: (orgId: string, projectId: string, documentId: string) =>
+    api.get(`/orgs/${orgId}/projects/${projectId}/documents/${documentId}`),
+
+  uploadDocument: (orgId: string, projectId: string, formData: FormData) =>
+    api.post(`/orgs/${orgId}/projects/${projectId}/documents`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
+
+  updateDocument: (orgId: string, projectId: string, documentId: string, data: Record<string, unknown>) =>
+    api.patch(`/orgs/${orgId}/projects/${projectId}/documents/${documentId}`, data),
+
+  deleteDocument: (orgId: string, projectId: string, documentId: string) =>
+    api.delete(`/orgs/${orgId}/projects/${projectId}/documents/${documentId}`),
+
+  getDocumentContent: (orgId: string, projectId: string, documentId: string) =>
+    api.get(`/orgs/${orgId}/projects/${projectId}/documents/${documentId}/content`),
+
+  // Context Rules
+  listRules: (orgId: string, projectId: string, params?: Record<string, string>) =>
+    api.get(`/orgs/${orgId}/projects/${projectId}/rules`, { params }),
+
+  createRule: (orgId: string, projectId: string, data: {
+    category: 'constraint' | 'standard' | 'tone' | 'do_not';
+    rule_text: string;
+    priority?: number;
+    is_active?: boolean;
+  }) => api.post(`/orgs/${orgId}/projects/${projectId}/rules`, data),
+
+  updateRule: (orgId: string, projectId: string, ruleId: string, data: Record<string, unknown>) =>
+    api.patch(`/orgs/${orgId}/projects/${projectId}/rules/${ruleId}`, data),
+
+  deleteRule: (orgId: string, projectId: string, ruleId: string) =>
+    api.delete(`/orgs/${orgId}/projects/${projectId}/rules/${ruleId}`),
+
+  // Context for AI
+  getContext: (orgId: string, projectId: string) =>
+    api.get(`/orgs/${orgId}/projects/${projectId}/context`),
+};

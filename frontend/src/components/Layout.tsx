@@ -10,6 +10,7 @@ import {
   X,
   Building2,
   BookOpen,
+  Folder,
 } from 'lucide-react';
 
 export default function Layout() {
@@ -26,6 +27,7 @@ export default function Layout() {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard },
     { name: 'Tasks', href: '/tasks', icon: FileText },
+    { name: 'Projects', href: '/projects', icon: Folder },
     { name: 'Decisions', href: '/decisions', icon: BookOpen },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];

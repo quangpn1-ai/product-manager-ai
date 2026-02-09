@@ -13,6 +13,8 @@ import Dashboard from './pages/Dashboard';
 import Tasks from './pages/Tasks';
 import NewTask from './pages/NewTask';
 import TaskDetail from './pages/TaskDetail';
+import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 import Decisions from './pages/Decisions';
 import AuditLog from './pages/AuditLog';
 import Settings from './pages/Settings';
@@ -118,6 +120,8 @@ function AppRoutes() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="tasks/new" element={<NewTask />} />
         <Route path="tasks/:taskId" element={<TaskDetail />} />
+        <Route path="projects" element={<Projects />} />
+        <Route path="projects/:projectId" element={<ProjectDetail />} />
         <Route path="decisions" element={<Decisions />} />
         <Route path="audit" element={<AuditLog />} />
         <Route path="settings" element={<Settings />} />

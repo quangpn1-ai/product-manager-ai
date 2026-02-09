@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { tasksApi, orgsApi } from '../lib/api';
+import { tasksApi, orgsApi, projectsApi } from '../lib/api';
 import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
 
 export default function NewTask() {
@@ -14,6 +14,7 @@ export default function NewTask() {
   const [requesterName, setRequesterName] = useState('');
   const [urgency, setUrgency] = useState('medium');
   const [tags, setTags] = useState('');
+  const [projectId, setProjectId] = useState('');
   const [error, setError] = useState('');
 
   const { data: workflowsData } = useQuery({
@@ -22,7 +23,14 @@ export default function NewTask() {
     enabled: !!currentOrgId,
   });
 
+  const { data: projectsData } = useQuery({
+    queryKey: ['projects', currentOrgId],
+    queryFn: () => projectsApi.list(currentOrgId!, { status: 'active' }),
+    enabled: !!currentOrgId,
+  });
+
   const workflows = workflowsData?.data?.data || [];
+  const projects = projectsData?.data?.data || [];
   const defaultWorkflow = workflows.find((w: any) => w.key === 'wf_product_brief_v1') || workflows[0];
 
   const createMutation = useMutation({
@@ -51,6 +59,7 @@ export default function NewTask() {
       requester_name: requesterName || undefined,
       urgency,
       tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+      project_id: projectId || undefined,
     });
   };
 
@@ -139,6 +148,28 @@ export default function NewTask() {
               <option value="critical">Critical</option>
             </select>
           </div>
+        </div>
+
+        <div>
+          <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-1">
+            Project (for AI context)
+          </label>
+          <select
+            id="project"
+            value={projectId}
+            onChange={(e) => setProjectId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">No project (no additional context)</option>
+            {projects.map((p: any) => (
+              <option key={p.id} value={p.id}>
+                {p.name} {p.domain ? `(${p.domain})` : ''}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-sm text-gray-500">
+            Selecting a project will inject its documents and rules as context for AI generation.
+          </p>
         </div>
 
         <div>
